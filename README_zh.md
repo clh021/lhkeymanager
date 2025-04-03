@@ -45,11 +45,11 @@ go build -o lhkeymanager
 
 2. 脚本将询问您配置以下安全规则：
    - `MinKeyLength`：加密密钥的最小长度（默认：16）
-   - `KeyPrefix`：加密密钥的必需前缀（默认：lh-）
-   - `KeySuffix`：加密密钥的必需后缀（默认：u）
-   - `RequiredChars`：密钥中必须包含的字符（默认：!@#$%^&*）
+   - `KeyPrefix`：加密密钥的必需前缀（默认：lh-，输入 'empty' 表示无前缀要求）
+   - `KeySuffix`：加密密钥的必需后缀（默认：u，输入 'empty' 表示无后缀要求）
+   - `RequiredChars`：密钥中必须包含的字符（默认：!@#$%^&*，输入 'empty' 表示无特殊字符要求）
    - `MinSpecialChars`：所需的最少特殊字符数量（默认：2）
-   - `KeyContain`：密钥中必须包含的字符串（默认：key）
+   - `KeyContain`：密钥中必须包含的字符串（默认：key，输入 'empty' 表示无包含要求）
 
 这样，只有您知道有效加密密钥的确切规则，即使他人获取了您的加密数据，也更难猜到您的密钥。
 

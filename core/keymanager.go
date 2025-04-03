@@ -76,6 +76,9 @@ func ValidateKeyWithRules(key string, minLength int, prefix, suffix, requiredCha
 		if specialCharCount < minSpecialChars {
 			return false
 		}
+	} else {
+		// If no required characters are specified, don't check minSpecialChars
+		// This allows users to disable special character requirements
 	}
 
 	// Check if the key contains the required string

@@ -37,19 +37,31 @@ if [[ $customize == "y" || $customize == "Y" ]]; then
     min_key_length=${min_key_length:-16}
 
     # 询问 KeyPrefix
-    echo -e "${YELLOW}输入必需的密钥前缀 (默认: lh-):${NC}"
+    echo -e "${YELLOW}输入必需的密钥前缀 (默认: lh-, 输入 'empty' 表示无前缀):${NC}"
     read -r key_prefix
-    key_prefix=${key_prefix:-lh-}
+    if [[ "$key_prefix" == "empty" ]]; then
+        key_prefix=""
+    else
+        key_prefix=${key_prefix:-lh-}
+    fi
 
     # 询问 KeySuffix
-    echo -e "${YELLOW}输入必需的密钥后缀 (默认: u):${NC}"
+    echo -e "${YELLOW}输入必需的密钥后缀 (默认: u, 输入 'empty' 表示无后缀):${NC}"
     read -r key_suffix
-    key_suffix=${key_suffix:-u}
+    if [[ "$key_suffix" == "empty" ]]; then
+        key_suffix=""
+    else
+        key_suffix=${key_suffix:-u}
+    fi
 
     # 询问 RequiredChars
-    echo -e "${YELLOW}输入必需的特殊字符 (默认: !@#$%^&*):${NC}"
+    echo -e "${YELLOW}输入必需的特殊字符 (默认: !@#$%^&*, 输入 'empty' 表示无特殊字符要求):${NC}"
     read -r required_chars
-    required_chars=${required_chars:-!@#$%^&*}
+    if [[ "$required_chars" == "empty" ]]; then
+        required_chars=""
+    else
+        required_chars=${required_chars:-!@#$%^&*}
+    fi
 
     # 询问 MinSpecialChars
     echo -e "${YELLOW}输入最小特殊字符数量 (默认: 2):${NC}"
@@ -57,9 +69,13 @@ if [[ $customize == "y" || $customize == "Y" ]]; then
     min_special_chars=${min_special_chars:-2}
 
     # 询问 KeyContain
-    echo -e "${YELLOW}输入密钥必须包含的字符串 (默认: key):${NC}"
+    echo -e "${YELLOW}输入密钥必须包含的字符串 (默认: key, 输入 'empty' 表示无包含要求):${NC}"
     read -r key_contain
-    key_contain=${key_contain:-key}
+    if [[ "$key_contain" == "empty" ]]; then
+        key_contain=""
+    else
+        key_contain=${key_contain:-key}
+    fi
 
     # 确认设置
     echo -e "${GREEN}安全规则:${NC}"

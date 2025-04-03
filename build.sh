@@ -37,19 +37,31 @@ if [[ $customize == "y" || $customize == "Y" ]]; then
     min_key_length=${min_key_length:-16}
 
     # Ask for KeyPrefix
-    echo -e "${YELLOW}Enter required key prefix (default: lh-):${NC}"
+    echo -e "${YELLOW}Enter required key prefix (default: lh-, enter 'empty' for no prefix):${NC}"
     read -r key_prefix
-    key_prefix=${key_prefix:-lh-}
+    if [[ "$key_prefix" == "empty" ]]; then
+        key_prefix=""
+    else
+        key_prefix=${key_prefix:-lh-}
+    fi
 
     # Ask for KeySuffix
-    echo -e "${YELLOW}Enter required key suffix (default: u):${NC}"
+    echo -e "${YELLOW}Enter required key suffix (default: u, enter 'empty' for no suffix):${NC}"
     read -r key_suffix
-    key_suffix=${key_suffix:-u}
+    if [[ "$key_suffix" == "empty" ]]; then
+        key_suffix=""
+    else
+        key_suffix=${key_suffix:-u}
+    fi
 
     # Ask for RequiredChars
-    echo -e "${YELLOW}Enter required special characters (default: !@#$%^&*):${NC}"
+    echo -e "${YELLOW}Enter required special characters (default: !@#$%^&*, enter 'empty' for none):${NC}"
     read -r required_chars
-    required_chars=${required_chars:-!@#$%^&*}
+    if [[ "$required_chars" == "empty" ]]; then
+        required_chars=""
+    else
+        required_chars=${required_chars:-!@#$%^&*}
+    fi
 
     # Ask for MinSpecialChars
     echo -e "${YELLOW}Enter minimum number of special characters (default: 2):${NC}"
@@ -57,9 +69,13 @@ if [[ $customize == "y" || $customize == "Y" ]]; then
     min_special_chars=${min_special_chars:-2}
 
     # Ask for KeyContain
-    echo -e "${YELLOW}Enter string that must be contained in the key (default: key):${NC}"
+    echo -e "${YELLOW}Enter string that must be contained in the key (default: key, enter 'empty' for none):${NC}"
     read -r key_contain
-    key_contain=${key_contain:-key}
+    if [[ "$key_contain" == "empty" ]]; then
+        key_contain=""
+    else
+        key_contain=${key_contain:-key}
+    fi
 
     # Confirm settings
     echo -e "${GREEN}Security rules:${NC}"

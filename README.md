@@ -45,11 +45,11 @@ For enhanced security, you can customize the encryption key validation rules dur
 
 2. The script will ask you to configure the following security rules:
    - `MinKeyLength`: Minimum length for encryption keys (default: 16)
-   - `KeyPrefix`: Required prefix for encryption keys (default: lh-)
-   - `KeySuffix`: Required suffix for encryption keys (default: u)
-   - `RequiredChars`: Characters that must be present in the key (default: !@#$%^&*)
+   - `KeyPrefix`: Required prefix for encryption keys (default: lh-, enter 'empty' for no prefix)
+   - `KeySuffix`: Required suffix for encryption keys (default: u, enter 'empty' for no suffix)
+   - `RequiredChars`: Characters that must be present in the key (default: !@#$%^&*, enter 'empty' for no special character requirements)
    - `MinSpecialChars`: Minimum number of special characters required (default: 2)
-   - `KeyContain`: String that must be contained in the key (default: key)
+   - `KeyContain`: String that must be contained in the key (default: key, enter 'empty' for no content requirements)
 
 This way, only you know the exact rules for valid encryption keys, making it much harder for others to guess your keys even if they have access to your encrypted data.
 
