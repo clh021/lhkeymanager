@@ -2,37 +2,41 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/clh021/lhkeymanager/utils"
 )
 
-const (
-	// Security rules for encryption keys
-	// You can modify these rules to enhance security
-	// After modification, recompile the program using build.sh
+// Security rules for encryption keys
+// These values can be overridden at build time using -ldflags
 
-	// MinKeyLength is the minimum length required for encryption keys
-	MinKeyLength = 14
+// MinKeyLength is the minimum length required for encryption keys
+var MinKeyLength = "16"
 
-	// KeyPrefix is the required prefix for encryption keys (empty means no prefix required)
-	KeyPrefix = ""
+// KeyPrefix is the required prefix for encryption keys (empty means no prefix required)
+var KeyPrefix = "lh-"
 
-	// KeySuffix is the required suffix for encryption keys (empty means no suffix required)
-	KeySuffix = "u"
+// KeySuffix is the required suffix for encryption keys (empty means no suffix required)
+var KeySuffix = "u"
 
-	// RequiredChars are characters that must be present in the encryption key (empty means no specific chars required)
-	RequiredChars = "!@#$%^&*"
+// RequiredChars are characters that must be present in the encryption key (empty means no specific chars required)
+var RequiredChars = "!@#$%^&*"
 
-	// MinSpecialChars is the minimum number of special characters required in the encryption key
-	MinSpecialChars = 1
-)
+// MinSpecialChars is the minimum number of special characters required in the encryption key
+var MinSpecialChars = "2"
+
+// KeyContain is a string that must be contained in the encryption key (empty means no specific string required)
+var KeyContain = "key"
 
 // ValidateKey validates the encryption key
 // key: encryption key to validate
 // Returns true if the key is valid, false otherwise
 func ValidateKey(key string) bool {
-	return ValidateKeyWithRules(key, MinKeyLength, KeyPrefix, KeySuffix, RequiredChars, MinSpecialChars)
+	// Convert string values to integers
+	minKeyLength, _ := strconv.Atoi(MinKeyLength)
+	minSpecialChars, _ := strconv.Atoi(MinSpecialChars)
+	return ValidateKeyWithRules(key, minKeyLength, KeyPrefix, KeySuffix, RequiredChars, minSpecialChars, KeyContain)
 }
 
 // ValidateKeyWithRules validates the encryption key with custom rules
@@ -43,8 +47,9 @@ func ValidateKey(key string) bool {
 // suffix: required suffix for the key (empty means no suffix required)
 // requiredChars: characters that must be present in the key (empty means no specific chars required)
 // minSpecialChars: minimum number of special characters required
+// contain: a string that must be contained in the key (empty means no specific string required)
 // Returns true if the key is valid, false otherwise
-func ValidateKeyWithRules(key string, minLength int, prefix, suffix, requiredChars string, minSpecialChars int) bool {
+func ValidateKeyWithRules(key string, minLength int, prefix, suffix, requiredChars string, minSpecialChars int, contain string) bool {
 	// Check minimum length
 	if len(key) < minLength {
 		return false
@@ -71,6 +76,11 @@ func ValidateKeyWithRules(key string, minLength int, prefix, suffix, requiredCha
 		if specialCharCount < minSpecialChars {
 			return false
 		}
+	}
+
+	// Check if the key contains the required string
+	if contain != "" && !strings.Contains(key, contain) {
+		return false
 	}
 
 	return true

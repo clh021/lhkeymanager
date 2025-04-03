@@ -39,17 +39,22 @@ func TestValidateKey(t *testing.T) {
 			key:      "",
 			expected: false,
 		},
+		{
+			name:     "Key without required content",
+			key:      "test-pass-1234!u",
+			expected: false,
+		},
 	}
 
 	// Run test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 使用简化的规则进行测试
-			// 测试中使用的规则：最小长度14，必须以u结尾，必须包含至少1个!字符
+			// 测试中使用的规则：最小长度14，必须以u结尾，必须包含至少1个!字符，必须包含"key"
 			// 打印调试信息
-			t.Logf("Testing key: %s, contains '!': %v, ends with 'u': %v, length: %d",
-				tc.key, strings.Contains(tc.key, "!"), strings.HasSuffix(tc.key, "u"), len(tc.key))
-			result := ValidateKeyWithRules(tc.key, 14, "", "u", "!", 1)
+			t.Logf("Testing key: %s, contains '!': %v, ends with 'u': %v, contains 'key': %v, length: %d",
+				tc.key, strings.Contains(tc.key, "!"), strings.HasSuffix(tc.key, "u"), strings.Contains(tc.key, "key"), len(tc.key))
+			result := ValidateKeyWithRules(tc.key, 14, "", "u", "!", 1, "key")
 			if result != tc.expected {
 				t.Errorf("Expected %v, got %v", tc.expected, result)
 			}
@@ -80,14 +85,14 @@ func TestStoreAndLoadAPIKey(t *testing.T) {
 			name:          "Valid API key",
 			apiKey:        "sk-1234567890abcdef",
 			envName:       "API_KEY_TEST",
-			encryptionKey: "test-key-1234!u",
+			encryptionKey: "lh-test-key-1234!!u",
 			shouldSucceed: true,
 		},
 		{
 			name:          "Empty API key",
 			apiKey:        "",
 			envName:       "EMPTY_KEY_TEST",
-			encryptionKey: "test-key-1234!u",
+			encryptionKey: "lh-test-key-1234!!u",
 			shouldSucceed: true,
 		},
 		{
@@ -150,7 +155,7 @@ func TestLoadAPIKeys_InvalidKey(t *testing.T) {
 	// Store an API key using test helper
 	apiKey := "sk-1234567890abcdef"
 	envName := "API_KEY_TEST"
-	encryptionKey := "test-key-1234!u"
+	encryptionKey := "lh-test-key-1234!!u"
 
 	_, err = StoreAPIKeyForTest(apiKey, envName, encryptionKey, envFilePath)
 	if err != nil {
@@ -158,7 +163,7 @@ func TestLoadAPIKeys_InvalidKey(t *testing.T) {
 	}
 
 	// Try to load with an invalid key using test helper
-	_, err = LoadAPIKeysForTest("wrong-key-1234!u", envFilePath)
+	_, err = LoadAPIKeysForTest("lh-wrong-key-1234!!u", envFilePath)
 	if err == nil {
 		t.Errorf("Expected error when loading with wrong key")
 	}

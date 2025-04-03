@@ -1,63 +1,127 @@
 #!/bin/bash
 
-# 设置颜色
+# Set colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}开始构建 LH Key Manager...${NC}"
+echo -e "${GREEN}Starting to build LH Key Manager...${NC}"
 
-# 检查Go是否安装
+# Check if Go is installed
 if ! command -v go &> /dev/null; then
-    echo -e "${RED}错误: Go 未安装。请安装 Go 1.18 或更高版本。${NC}"
+    echo -e "${RED}Error: Go is not installed. Please install Go 1.18 or higher.${NC}"
     exit 1
 fi
 
-# 检查Go版本
+# Check Go version
 GO_VERSION=$(go version | grep -oP 'go\d+\.\d+' | grep -oP '\d+\.\d+')
 GO_MAJOR=$(echo $GO_VERSION | cut -d. -f1)
 GO_MINOR=$(echo $GO_VERSION | cut -d. -f2)
 
 if [ "$GO_MAJOR" -lt 1 ] || ([ "$GO_MAJOR" -eq 1 ] && [ "$GO_MINOR" -lt 18 ]); then
-    echo -e "${RED}错误: Go 版本过低。需要 Go 1.18 或更高版本，当前版本: $GO_VERSION${NC}"
+    echo -e "${RED}Error: Go version is too old. Need Go 1.18 or higher, current version: $GO_VERSION${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}Go 版本检查通过: $GO_VERSION${NC}"
+echo -e "${GREEN}Go version check passed: $GO_VERSION${NC}"
 
-# 运行测试
-echo -e "${GREEN}运行测试...${NC}"
-go test ./... || { echo -e "${RED}测试失败${NC}"; exit 1; }
-echo -e "${GREEN}测试通过${NC}"
+# Ask for security rules
+echo -e "${YELLOW}Do you want to customize security rules? (y/n)${NC}"
+read -r customize
 
-# 构建二进制文件
-echo -e "${GREEN}构建二进制文件...${NC}"
-go build -ldflags="-s -w" -o lhkeymanager || { echo -e "${RED}构建失败${NC}"; exit 1; }
-echo -e "${GREEN}构建成功: $(pwd)/lhkeymanager${NC}"
+if [[ $customize == "y" || $customize == "Y" ]]; then
+    # Ask for MinKeyLength
+    echo -e "${YELLOW}Enter minimum key length (default: 16):${NC}"
+    read -r min_key_length
+    min_key_length=${min_key_length:-16}
 
-# 检查文件大小
-ORIGINAL_SIZE=$(du -h lhkeymanager | cut -f1)
-echo -e "${GREEN}原始二进制大小: $ORIGINAL_SIZE${NC}"
+    # Ask for KeyPrefix
+    echo -e "${YELLOW}Enter required key prefix (default: lh-):${NC}"
+    read -r key_prefix
+    key_prefix=${key_prefix:-lh-}
 
-# 检查是否安装了UPX
-if command -v upx &> /dev/null; then
-    echo -e "${GREEN}使用UPX压缩二进制文件...${NC}"
-    upx -9 lhkeymanager || { echo -e "${YELLOW}UPX压缩失败，但这不影响程序功能${NC}"; }
-    COMPRESSED_SIZE=$(du -h lhkeymanager | cut -f1)
-    echo -e "${GREEN}压缩后二进制大小: $COMPRESSED_SIZE${NC}"
+    # Ask for KeySuffix
+    echo -e "${YELLOW}Enter required key suffix (default: u):${NC}"
+    read -r key_suffix
+    key_suffix=${key_suffix:-u}
+
+    # Ask for RequiredChars
+    echo -e "${YELLOW}Enter required special characters (default: !@#$%^&*):${NC}"
+    read -r required_chars
+    required_chars=${required_chars:-!@#$%^&*}
+
+    # Ask for MinSpecialChars
+    echo -e "${YELLOW}Enter minimum number of special characters (default: 2):${NC}"
+    read -r min_special_chars
+    min_special_chars=${min_special_chars:-2}
+
+    # Ask for KeyContain
+    echo -e "${YELLOW}Enter string that must be contained in the key (default: key):${NC}"
+    read -r key_contain
+    key_contain=${key_contain:-key}
+
+    # Confirm settings
+    echo -e "${GREEN}Security rules:${NC}"
+    echo -e "Minimum key length: ${YELLOW}$min_key_length${NC}"
+    echo -e "Required key prefix: ${YELLOW}$key_prefix${NC}"
+    echo -e "Required key suffix: ${YELLOW}$key_suffix${NC}"
+    echo -e "Required special characters: ${YELLOW}$required_chars${NC}"
+    echo -e "Minimum number of special characters: ${YELLOW}$min_special_chars${NC}"
+    echo -e "Required contained string: ${YELLOW}$key_contain${NC}"
+
+    echo -e "${YELLOW}Are these settings correct? (y/n)${NC}"
+    read -r confirm
+    if [[ $confirm != "y" && $confirm != "Y" ]]; then
+        echo -e "${RED}Build cancelled.${NC}"
+        exit 1
+    fi
+
+    # Build with custom settings
+    ldflags="-X 'github.com/clh021/lhkeymanager/core.MinKeyLength=$min_key_length' \
+             -X 'github.com/clh021/lhkeymanager/core.KeyPrefix=$key_prefix' \
+             -X 'github.com/clh021/lhkeymanager/core.KeySuffix=$key_suffix' \
+             -X 'github.com/clh021/lhkeymanager/core.RequiredChars=$required_chars' \
+             -X 'github.com/clh021/lhkeymanager/core.MinSpecialChars=$min_special_chars' \
+             -X 'github.com/clh021/lhkeymanager/core.KeyContain=$key_contain' \
+             -s -w"
 else
-    echo -e "${YELLOW}提示: 未找到UPX。安装UPX可以进一步减小二进制文件大小。${NC}"
-    echo -e "${YELLOW}在Debian/Ubuntu上: sudo apt-get install upx${NC}"
-    echo -e "${YELLOW}在CentOS/RHEL上: sudo yum install upx${NC}"
-    echo -e "${YELLOW}在macOS上: brew install upx${NC}"
+    # Build with default settings
+    ldflags="-s -w"
 fi
 
-# 设置可执行权限
+# Run tests
+echo -e "${GREEN}Running tests...${NC}"
+go test ./... || { echo -e "${RED}Tests failed${NC}"; exit 1; }
+echo -e "${GREEN}Tests passed${NC}"
+
+# Build binary
+echo -e "${GREEN}Building binary...${NC}"
+go build -ldflags="$ldflags" -o lhkeymanager || { echo -e "${RED}Build failed${NC}"; exit 1; }
+echo -e "${GREEN}Build successful: $(pwd)/lhkeymanager${NC}"
+
+# Check file size
+ORIGINAL_SIZE=$(du -h lhkeymanager | cut -f1)
+echo -e "${GREEN}Original binary size: $ORIGINAL_SIZE${NC}"
+
+# Check if UPX is installed
+if command -v upx &> /dev/null; then
+    echo -e "${GREEN}Using UPX to compress binary...${NC}"
+    upx -9 lhkeymanager || { echo -e "${YELLOW}UPX compression failed, but this doesn't affect functionality${NC}"; }
+    COMPRESSED_SIZE=$(du -h lhkeymanager | cut -f1)
+    echo -e "${GREEN}Compressed binary size: $COMPRESSED_SIZE${NC}"
+else
+    echo -e "${YELLOW}Note: UPX not found. Installing UPX can further reduce binary size.${NC}"
+    echo -e "${YELLOW}On Debian/Ubuntu: sudo apt-get install upx${NC}"
+    echo -e "${YELLOW}On CentOS/RHEL: sudo yum install upx${NC}"
+    echo -e "${YELLOW}On macOS: brew install upx${NC}"
+fi
+
+# Set executable permissions
 chmod +x lhkeymanager
 
-echo -e "${GREEN}构建完成!${NC}"
-echo -e "${GREEN}您可以通过以下命令运行程序:${NC}"
+echo -e "${GREEN}Build complete!${NC}"
+echo -e "${GREEN}You can run the program with:${NC}"
 echo -e "${YELLOW}./lhkeymanager${NC}"
 echo ""
-echo -e "${GREEN}提示: 您可以在core/keymanager.go中自定义密钥验证规则，然后重新运行此脚本以增强安全性。${NC}"
+echo -e "${GREEN}Note: You've built a version with custom security rules. Keep your encryption key secret!${NC}"

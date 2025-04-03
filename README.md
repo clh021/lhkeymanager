@@ -26,7 +26,9 @@ git clone https://github.com/clh021/lhkeymanager.git
 cd lhkeymanager
 
 # Build using the build script (recommended)
-./build.sh
+./build.sh  # English version
+# or
+./build_zh.sh  # Chinese version
 
 # Or build manually
 go build -o lhkeymanager
@@ -34,19 +36,20 @@ go build -o lhkeymanager
 
 ### Customizing Security Rules
 
-For enhanced security, you can customize the encryption key validation rules before building:
+For enhanced security, you can customize the encryption key validation rules during the build process:
 
-1. Edit the security constants in `core/keymanager.go`:
-   - `MinKeyLength`: Minimum length for encryption keys
-   - `KeyPrefix`: Required prefix for encryption keys
-   - `KeySuffix`: Required suffix for encryption keys
-   - `RequiredChars`: Characters that must be present in the key
-   - `MinSpecialChars`: Minimum number of special characters required
-
-2. After customization, rebuild the binary using the build script:
+1. Run the build script and choose to customize security rules when prompted:
    ```bash
    ./build.sh
    ```
+
+2. The script will ask you to configure the following security rules:
+   - `MinKeyLength`: Minimum length for encryption keys (default: 16)
+   - `KeyPrefix`: Required prefix for encryption keys (default: lh-)
+   - `KeySuffix`: Required suffix for encryption keys (default: u)
+   - `RequiredChars`: Characters that must be present in the key (default: !@#$%^&*)
+   - `MinSpecialChars`: Minimum number of special characters required (default: 2)
+   - `KeyContain`: String that must be contained in the key (default: key)
 
 This way, only you know the exact rules for valid encryption keys, making it much harder for others to guess your keys even if they have access to your encrypted data.
 

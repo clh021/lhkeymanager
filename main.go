@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -42,7 +43,8 @@ func main() {
 	if !core.ValidateKey(key) {
 		fmt.Println("\n错误: 密钥验证失败")
 		fmt.Println("请确保密钥符合以下要求:")
-		fmt.Printf("- 最小长度: %d\n", core.MinKeyLength)
+		minKeyLength, _ := strconv.Atoi(core.MinKeyLength)
+		fmt.Printf("- 最小长度: %d\n", minKeyLength)
 		if core.KeyPrefix != "" {
 			fmt.Printf("- 必须以 '%s' 开头\n", core.KeyPrefix)
 		}
@@ -50,7 +52,11 @@ func main() {
 			fmt.Printf("- 必须以 '%s' 结尾\n", core.KeySuffix)
 		}
 		if core.RequiredChars != "" {
-			fmt.Printf("- 必须包含至少 %d 个特殊字符 (%s)\n", core.MinSpecialChars, core.RequiredChars)
+			minSpecialChars, _ := strconv.Atoi(core.MinSpecialChars)
+			fmt.Printf("- 必须包含至少 %d 个特殊字符 (%s)\n", minSpecialChars, core.RequiredChars)
+		}
+		if core.KeyContain != "" {
+			fmt.Printf("- 必须包含字符串 '%s'\n", core.KeyContain)
 		}
 		os.Exit(1)
 	}
