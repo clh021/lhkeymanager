@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -17,18 +16,18 @@ import (
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
-	// 询问用户操作
-	fmt.Println("请选择操作:")
-	fmt.Println("1. 存储新的API密钥到.env文件")
-	fmt.Println("2. 读取.env文件中的密钥到新bash会话")
-	fmt.Print("请输入选项 (1/2): ")
-
-	choice, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Printf("读取输入失败: %v\n", err)
+	// 检查命令行参数
+	var choice string
+	if len(os.Args) > 1 {
+		// 使用命令行参数
+		choice = os.Args[1]
+	} else {
+		// 无参数，直接退出
+		fmt.Println("错误: 密钥验证失败")
 		os.Exit(1)
 	}
-	choice = strings.TrimSpace(choice)
+
+
 
 	// 获取加密密钥（不显示输入）
 	fmt.Print("请输入加密密钥: ")
@@ -42,22 +41,6 @@ func main() {
 	// Validate the encryption key
 	if !core.ValidateKey(key) {
 		fmt.Println("\n错误: 密钥验证失败")
-		fmt.Println("请确保密钥符合以下要求:")
-		minKeyLength, _ := strconv.Atoi(core.MinKeyLength)
-		fmt.Printf("- 最小长度: %d\n", minKeyLength)
-		if core.KeyPrefix != "" {
-			fmt.Printf("- 必须以 '%s' 开头\n", core.KeyPrefix)
-		}
-		if core.KeySuffix != "" {
-			fmt.Printf("- 必须以 '%s' 结尾\n", core.KeySuffix)
-		}
-		if core.RequiredChars != "" {
-			minSpecialChars, _ := strconv.Atoi(core.MinSpecialChars)
-			fmt.Printf("- 必须包含至少 %d 个特殊字符 (%s)\n", minSpecialChars, core.RequiredChars)
-		}
-		if core.KeyContain != "" {
-			fmt.Printf("- 必须包含字符串 '%s'\n", core.KeyContain)
-		}
 		os.Exit(1)
 	}
 
@@ -67,7 +50,7 @@ func main() {
 	case "2":
 		loadKeysToNewBash(key)
 	default:
-		fmt.Println("无效的选项")
+		fmt.Println("错误: 密钥验证失败")
 		os.Exit(1)
 	}
 
@@ -77,38 +60,53 @@ func main() {
 
 // Store a new API key in the .env file
 func storeKey(reader *bufio.Reader, key string) {
-	// Get the API key to encrypt (input not shown)
-	fmt.Print("请输入要加密的API密钥: ")
-	byteSecret, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		fmt.Printf("\n读取API密钥失败: %v\n", err)
-		os.Exit(1)
+	for {
+		// Get the API key to encrypt (input not shown)
+		fmt.Print("请输入要加密的API密钥: ")
+		byteSecret, err := term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			fmt.Printf("\n读取API密钥失败: %v\n", err)
+			os.Exit(1)
+		}
+		plaintext := string(byteSecret)
+		fmt.Println() // Newline
+
+		// Get the environment variable name (can be displayed)
+		fmt.Print("请输入环境变量名(带后缀): ")
+		envName, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("读取环境变量名失败: %v\n", err)
+			os.Exit(1)
+		}
+		envName = strings.TrimSpace(envName)
+
+		// Store the API key
+		encValue, err := core.StoreAPIKey(plaintext, envName, key, ".env")
+		if err != nil {
+			fmt.Printf("存储API密钥失败: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Output the encryption result
+		fmt.Printf("\n加密结果: %s\n", encValue)
+		fmt.Println("已成功保存到.env文件")
+
+		// Clear sensitive data from memory
+		clearString(&plaintext)
+
+		// Ask if the user wants to add another key
+		fmt.Print("\n是否继续添加新的密钥? (y/n): ")
+		continueChoice, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("读取输入失败: %v\n", err)
+			os.Exit(1)
+		}
+		continueChoice = strings.TrimSpace(continueChoice)
+
+		if continueChoice != "y" && continueChoice != "Y" {
+			break
+		}
 	}
-	plaintext := string(byteSecret)
-	fmt.Println() // Newline
-
-	// Get the environment variable name (can be displayed)
-	fmt.Print("请输入环境变量名(带后缀): ")
-	envName, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Printf("读取环境变量名失败: %v\n", err)
-		os.Exit(1)
-	}
-	envName = strings.TrimSpace(envName)
-
-	// Store the API key
-	encValue, err := core.StoreAPIKey(plaintext, envName, key, ".env")
-	if err != nil {
-		fmt.Printf("存储API密钥失败: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Output the encryption result
-	fmt.Printf("\n加密结果: %s\n", encValue)
-	fmt.Println("已成功保存到.env文件")
-
-	// Clear sensitive data from memory
-	clearString(&plaintext)
 }
 
 // Load keys from the .env file into a new bash session
@@ -205,3 +203,5 @@ func clearString(s *string) {
 	}
 	*s = ""
 }
+
+
