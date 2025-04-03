@@ -25,9 +25,30 @@
 git clone https://github.com/clh021/lhkeymanager.git
 cd lhkeymanager
 
-# 构建二进制文件
+# 使用构建脚本构建（推荐）
+./build.sh
+
+# 或手动构建
 go build -o lhkeymanager
 ```
+
+### 自定义安全规则
+
+为了提高安全性，您可以在构建前自定义加密密钥的验证规则：
+
+1. 编辑 `core/keymanager.go` 文件中的安全常量：
+   - `MinKeyLength`：加密密钥的最小长度
+   - `KeyPrefix`：加密密钥的必需前缀
+   - `KeySuffix`：加密密钥的必需后缀
+   - `RequiredChars`：密钥中必须包含的字符
+   - `MinSpecialChars`：所需的最少特殊字符数量
+
+2. 自定义后，使用构建脚本重新构建二进制文件：
+   ```bash
+   ./build.sh
+   ```
+
+这样，只有您知道有效加密密钥的确切规则，即使他人获取了您的加密数据，也更难猜到您的密钥。
 
 ## 使用方法
 

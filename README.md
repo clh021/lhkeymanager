@@ -25,9 +25,30 @@ A secure tool for managing API keys, encrypting them in `.env` files, and loadin
 git clone https://github.com/clh021/lhkeymanager.git
 cd lhkeymanager
 
-# Build the binary
+# Build using the build script (recommended)
+./build.sh
+
+# Or build manually
 go build -o lhkeymanager
 ```
+
+### Customizing Security Rules
+
+For enhanced security, you can customize the encryption key validation rules before building:
+
+1. Edit the security constants in `core/keymanager.go`:
+   - `MinKeyLength`: Minimum length for encryption keys
+   - `KeyPrefix`: Required prefix for encryption keys
+   - `KeySuffix`: Required suffix for encryption keys
+   - `RequiredChars`: Characters that must be present in the key
+   - `MinSpecialChars`: Minimum number of special characters required
+
+2. After customization, rebuild the binary using the build script:
+   ```bash
+   ./build.sh
+   ```
+
+This way, only you know the exact rules for valid encryption keys, making it much harder for others to guess your keys even if they have access to your encrypted data.
 
 ## Usage
 

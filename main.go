@@ -8,13 +8,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/clh021/lhkeymanager/utils"
+	"github.com/clh021/lhkeymanager/core"
 
 	"golang.org/x/term"
-)
-
-const (
-	MinKeyLength = 14 // 不向用户透露这个信息
 )
 
 func main() {
@@ -42,9 +38,20 @@ func main() {
 	}
 	key := string(bytePassword)
 
-	// 验证密钥长度和结尾字符，但不透露具体要求
-	if len(key) < MinKeyLength || !strings.HasSuffix(key, "u") {
-		fmt.Println("错误: 密钥验证失败")
+	// Validate the encryption key
+	if !core.ValidateKey(key) {
+		fmt.Println("\n错误: 密钥验证失败")
+		fmt.Println("请确保密钥符合以下要求:")
+		fmt.Printf("- 最小长度: %d\n", core.MinKeyLength)
+		if core.KeyPrefix != "" {
+			fmt.Printf("- 必须以 '%s' 开头\n", core.KeyPrefix)
+		}
+		if core.KeySuffix != "" {
+			fmt.Printf("- 必须以 '%s' 结尾\n", core.KeySuffix)
+		}
+		if core.RequiredChars != "" {
+			fmt.Printf("- 必须包含至少 %d 个特殊字符 (%s)\n", core.MinSpecialChars, core.RequiredChars)
+		}
 		os.Exit(1)
 	}
 
@@ -62,9 +69,9 @@ func main() {
 	clearString(&key)
 }
 
-// 存储新的API密钥到.env文件
+// Store a new API key in the .env file
 func storeKey(reader *bufio.Reader, key string) {
-	// 获取要加密的内容（不显示输入）
+	// Get the API key to encrypt (input not shown)
 	fmt.Print("请输入要加密的API密钥: ")
 	byteSecret, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
@@ -72,9 +79,9 @@ func storeKey(reader *bufio.Reader, key string) {
 		os.Exit(1)
 	}
 	plaintext := string(byteSecret)
-	fmt.Println() // 换行
+	fmt.Println() // Newline
 
-	// 获取环境变量名（可以显示）
+	// Get the environment variable name (can be displayed)
 	fmt.Print("请输入环境变量名(带后缀): ")
 	envName, err := reader.ReadString('\n')
 	if err != nil {
@@ -83,139 +90,76 @@ func storeKey(reader *bufio.Reader, key string) {
 	}
 	envName = strings.TrimSpace(envName)
 
-	// 加密
-	encrypted, err := utils.EncryptAES256(plaintext, key)
+	// Store the API key
+	encValue, err := core.StoreAPIKey(plaintext, envName, key, ".env")
 	if err != nil {
-		fmt.Printf("加密失败: %v\n", err)
+		fmt.Printf("存储API密钥失败: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 输出加密结果
-	encValue := fmt.Sprintf("enc:AES256:%s", encrypted)
+	// Output the encryption result
 	fmt.Printf("\n加密结果: %s\n", encValue)
-
-	// 保存到.env文件
-	err = saveToEnvFile(envName, encValue)
-	if err != nil {
-		fmt.Printf("保存到.env文件失败: %v\n", err)
-		os.Exit(1)
-	}
 	fmt.Println("已成功保存到.env文件")
 
-	// 清理内存中的敏感数据
+	// Clear sensitive data from memory
 	clearString(&plaintext)
 }
 
-// 读取.env文件中的密钥到新bash会话
+// Load keys from the .env file into a new bash session
 func loadKeysToNewBash(key string) {
-	// 检查.env文件是否存在
+	// Check if .env file exists
 	if _, err := os.Stat(".env"); os.IsNotExist(err) {
 		fmt.Println("错误: .env文件不存在")
 		os.Exit(1)
 	}
 
-	// 设置文件权限
+	// Set file permissions
 	err := os.Chmod(".env", 0600)
 	if err != nil {
 		fmt.Printf("设置.env文件权限失败: %v\n", err)
-		// 继续执行，不退出
+		// Continue execution, don't exit
 	}
 
-	// 创建临时环境变量文件
+	// Load and decrypt API keys
+	decryptedVars, err := core.LoadAPIKeys(key, ".env")
+	if err != nil {
+		fmt.Printf("加载密钥失败: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create temporary environment variables file
 	tempEnv, err := os.CreateTemp("", "env_vars_*")
 	if err != nil {
 		fmt.Printf("创建临时文件失败: %v\n", err)
 		os.Exit(1)
 	}
 	tempEnvPath := tempEnv.Name()
-	defer os.Remove(tempEnvPath) // 确保退出时删除临时文件
+	defer os.Remove(tempEnvPath) // Ensure temporary file is deleted on exit
 
-	// 设置临时文件权限
+	// Set temporary file permissions
 	err = os.Chmod(tempEnvPath, 0600)
 	if err != nil {
 		fmt.Printf("设置临时文件权限失败: %v\n", err)
-		// 继续执行，不退出
+		// Continue execution, don't exit
 	}
 
-	// 写入基本shell配置
+	// Write basic shell configuration
 	tempEnv.WriteString("#!/bin/bash\n")
-	tempEnv.WriteString("# 这是自动生成的临时环境变量文件\n\n")
+	tempEnv.WriteString("# This is an automatically generated temporary environment variables file\n\n")
 
-	// 读取.env文件并处理每一行
-	envFile, err := os.Open(".env")
-	if err != nil {
-		fmt.Printf("打开.env文件失败: %v\n", err)
-		os.Exit(1)
-	}
-	defer envFile.Close()
-
-	scanner := bufio.NewScanner(envFile)
-	decryptionSuccess := false // 跟踪是否有任何成功解密
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// 跳过空行和注释
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// 解析环境变量
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue // 跳过格式不正确的行
-		}
-
-		name := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		// 检查是否是加密值
-		if strings.HasPrefix(value, "enc:AES256:") {
-			encData := strings.TrimPrefix(value, "enc:AES256:")
-
-			// 解密
-			decrypted, err := utils.DecryptAES256(encData, key)
-			if err != nil {
-				// 不提示具体错误，继续处理下一个
-				continue
-			}
-
-			decryptionSuccess = true
-
-			// 去除后缀并设置环境变量
-			cleanName := name
-			if strings.Contains(name, "_") {
-				cleanName = name[:strings.LastIndex(name, "_")]
-			}
-
-			// 写入临时文件
-			tempEnv.WriteString(fmt.Sprintf("export %s='%s'\n", cleanName, decrypted))
-			fmt.Printf("已设置环境变量: %s\n", cleanName)
-		} else {
-			// 非加密值直接设置
-			tempEnv.WriteString(fmt.Sprintf("export %s='%s'\n", name, value))
-			fmt.Printf("已设置环境变量: %s\n", name)
-		}
+	// Write environment variables to temporary file
+	for name, value := range decryptedVars {
+		tempEnv.WriteString(fmt.Sprintf("export %s='%s'\n", name, value))
+		fmt.Printf("已设置环境变量: %s\n", name)
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Printf("读取.env文件失败: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 如果没有成功解密任何变量，提示密钥错误
-	if !decryptionSuccess {
-		fmt.Println("错误: 密钥验证失败")
-		os.Exit(1)
-	}
-
-	// 关闭临时文件
+	// Close temporary file
 	tempEnv.Close()
 
-	// 启动新的bash会话
+	// Start new bash session
 	fmt.Println("\n正在启动新的bash会话，环境变量已设置...")
 
-	// 使用source命令加载环境变量并启动新bash
+	// Use source command to load environment variables and start new bash
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("source %s && bash", tempEnvPath))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -227,46 +171,25 @@ func loadKeysToNewBash(key string) {
 		os.Exit(1)
 	}
 
-	// 安全删除临时文件
+	// Securely delete temporary file
 	secureDeleteFile(tempEnvPath)
 
 	fmt.Println("bash会话已结束，环境变量已清除")
 }
 
-// 保存到.env文件
-func saveToEnvFile(name, value string) error {
-	// 检查.env文件是否存在
-	envFile := ".env"
-	var file *os.File
-	var err error
+// secureDeleteFile attempts to securely delete a file
+func secureDeleteFile(path string) {
+	// Try to use the shred command for secure deletion
+	shredCmd := exec.Command("shred", "-u", "-z", path)
+	err := shredCmd.Run()
 
-	if _, err := os.Stat(envFile); os.IsNotExist(err) {
-		// 文件不存在，创建新文件
-		file, err = os.Create(envFile)
-		if err != nil {
-			return err
-		}
-	} else {
-		// 文件存在，以追加模式打开
-		file, err = os.OpenFile(envFile, os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			return err
-		}
-	}
-	defer file.Close()
-
-	// 设置文件权限为600（仅所有者可读写）
-	err = os.Chmod(envFile, 0600)
+	// If shred command is not available, use regular deletion
 	if err != nil {
-		return err
+		os.Remove(path)
 	}
-
-	// 写入环境变量
-	_, err = fmt.Fprintf(file, "%s=%s\n", name, value)
-	return err
 }
 
-// 清理字符串内存
+// clearString clears a string from memory by overwriting it
 func clearString(s *string) {
 	if s == nil {
 		return
@@ -275,16 +198,4 @@ func clearString(s *string) {
 		(*s) = (*s)[:i] + "\x00" + (*s)[i+1:]
 	}
 	*s = ""
-}
-
-// 安全删除文件
-func secureDeleteFile(path string) {
-	// 尝试使用shred命令安全删除
-	shredCmd := exec.Command("shred", "-u", "-z", path)
-	err := shredCmd.Run()
-
-	// 如果shred命令不可用，使用普通删除
-	if err != nil {
-		os.Remove(path)
-	}
 }
