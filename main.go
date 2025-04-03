@@ -36,11 +36,12 @@ func main() {
 		fmt.Printf("\n读取密钥失败: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println() // 添加换行
 	key := string(bytePassword)
 
 	// Validate the encryption key
 	if !core.ValidateKey(key) {
-		fmt.Println("\n错误: 密钥验证失败")
+		fmt.Println("错误: 密钥验证失败")
 		os.Exit(1)
 	}
 
@@ -60,7 +61,11 @@ func main() {
 
 // Store a new API key in the .env file
 func storeKey(reader *bufio.Reader, key string) {
-	for {
+	for i := 0; ; i++ {
+		// Add a newline before each iteration except the first one
+		if i > 0 {
+			fmt.Println()
+		}
 		// Get the API key to encrypt (input not shown)
 		fmt.Print("请输入要加密的API密钥: ")
 		byteSecret, err := term.ReadPassword(int(syscall.Stdin))
@@ -68,8 +73,8 @@ func storeKey(reader *bufio.Reader, key string) {
 			fmt.Printf("\n读取API密钥失败: %v\n", err)
 			os.Exit(1)
 		}
+		fmt.Println() // 添加换行
 		plaintext := string(byteSecret)
-		fmt.Println() // Newline
 
 		// Get the environment variable name (can be displayed)
 		fmt.Print("请输入环境变量名(带后缀): ")
@@ -88,14 +93,14 @@ func storeKey(reader *bufio.Reader, key string) {
 		}
 
 		// Output the encryption result
-		fmt.Printf("\n加密结果: %s\n", encValue)
+		fmt.Printf("加密结果: %s\n", encValue)
 		fmt.Println("已成功保存到.env文件")
 
 		// Clear sensitive data from memory
 		clearString(&plaintext)
 
 		// Ask if the user wants to add another key
-		fmt.Print("\n是否继续添加新的密钥? (y/n): ")
+		fmt.Print("是否继续添加新的密钥? (y/n): ")
 		continueChoice, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Printf("读取输入失败: %v\n", err)
@@ -156,12 +161,13 @@ func loadKeysToNewBash(key string) {
 		tempEnv.WriteString(fmt.Sprintf("export %s='%s'\n", name, value))
 		fmt.Printf("已设置环境变量: %s\n", name)
 	}
+	fmt.Println() // 添加换行
 
 	// Close temporary file
 	tempEnv.Close()
 
 	// Start new bash session
-	fmt.Println("\n正在启动新的bash会话，环境变量已设置...")
+	fmt.Println("正在启动新的bash会话，环境变量已设置...")
 
 	// Use source command to load environment variables and start new bash
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("source %s && bash", tempEnvPath))
@@ -178,7 +184,7 @@ func loadKeysToNewBash(key string) {
 	// Securely delete temporary file
 	secureDeleteFile(tempEnvPath)
 
-	fmt.Println("bash会话已结束，环境变量已清除")
+	fmt.Println("\nbash会话已结束，环境变量已清除")
 }
 
 // secureDeleteFile attempts to securely delete a file
