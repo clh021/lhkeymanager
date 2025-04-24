@@ -14,11 +14,31 @@
 
 ## 安装
 
-### 前提条件
+### 从 GitHub Releases 下载
 
-- Go 1.18 或更高版本
+安装 LH 密钥管理器最简单的方法是从 [GitHub Releases](https://github.com/clh021/lhkeymanager/releases) 页面下载预构建的二进制文件。
+
+1. 访问 [Releases](https://github.com/clh021/lhkeymanager/releases) 页面
+2. 下载适合您操作系统的版本：
+   - Linux 系统：`lhkeymanager-vX.Y.Z-linux-amd64.tar.gz` 或 `lhkeymanager-vX.Y.Z-linux-arm64.tar.gz`
+   - macOS 系统：`lhkeymanager-vX.Y.Z-darwin-amd64.tar.gz` 或 `lhkeymanager-vX.Y.Z-darwin-arm64.tar.gz`
+   - Windows 系统：`lhkeymanager-vX.Y.Z-windows-amd64.zip`
+3. 解压文件并设置可执行权限（Linux/macOS）：
+   ```bash
+   # Linux/macOS 系统
+   tar -xzf lhkeymanager-vX.Y.Z-linux-amd64.tar.gz
+   chmod +x lhkeymanager-vX.Y.Z-linux-amd64
+   # 可选：移动到 PATH 目录中
+   sudo mv lhkeymanager-vX.Y.Z-linux-amd64 /usr/local/bin/lhkeymanager
+   ```
 
 ### 从源代码构建
+
+如果您更喜欢从源代码构建：
+
+#### 前提条件
+
+- Go 1.18 或更高版本
 
 ```bash
 # 克隆仓库
@@ -121,6 +141,24 @@ MIT
 ## 贡献
 
 欢迎贡献！请随时提交Pull Request。
+
+### 创建新版本
+
+创建新版本的方法：
+
+1. 使用提供的脚本：
+   ```bash
+   ./create-release.sh v1.0.0
+   ```
+   这将创建并推送一个新标签，触发 GitHub Actions 工作流来构建和发布版本。
+
+2. 或者，您可以手动创建并推送标签：
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+3. 您还可以从 GitHub Actions 选项卡手动触发发布，方法是选择"Release"工作流并点击"Run workflow"。这允许您为构建指定自定义安全规则。
 
 ## 致谢
 

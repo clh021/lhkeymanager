@@ -1,0 +1,303 @@
+name: Release
+
+env:
+  MAX_COMMIT_LOGS: 40  # Maximum number of commit logs to display in release notes
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggered when pushing a tag starting with v, e.g., v1.0.0
+  workflow_dispatch: # Allow manual workflow triggering
+    inputs:
+      version:
+        description: 'Version (e.g.: v1.0.0)'
+        required: true
+        default: 'v0.0.0-manual'
+      min_key_length:
+        description: 'Minimum key length (default: 16)'
+        required: false
+        default: '16'
+      key_prefix:
+        description: 'Required key prefix (default: lh-, empty for none)'
+        required: false
+        default: 'lh-'
+      key_suffix:
+        description: 'Required key suffix (default: u, empty for none)'
+        required: false
+        default: 'u'
+      required_chars:
+        description: 'Required characters (default: !@#$%^&*)'
+        required: false
+        default: '!@#$%^&*'
+      min_special_chars:
+        description: 'Minimum special characters (default: 2)'
+        required: false
+        default: '2'
+      key_contain:
+        description: 'String that must be contained in the key (default: key, empty for none)'
+        required: false
+        default: 'key'
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 定义要构建的目标平台
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: ""
+          - goos: linux
+            goarch: arm64
+            suffix: ""
+          - goos: darwin
+            goarch: amd64
+            suffix: ""
+          - goos: darwin
+            goarch: arm64
+            suffix: ""
+          - goos: windows
+            goarch: amd64
+            suffix: ".exe"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整的 git 历史，用于生成版本号
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # 使用最新的稳定版 Go
+
+      - name: Get version info
+        id: get_version
+        run: |
+          # If manually triggered, use the input version, otherwise use the tag version
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+          echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "COMMIT_TIME=$(git log -1 --format=%aI)" >> $GITHUB_ENV
+          echo "COMMIT_COUNT=$(git rev-list --count HEAD)" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date -Iseconds)" >> $GITHUB_ENV
+
+          # Find previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            # If no previous tag found, get all commits
+            echo "No previous tag found, getting all commit records"
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+
+            if [ "$COMMIT_COUNT" -gt $MAX_COMMIT_LOGS ]; then
+              # If more than MAX_COMMIT_LOGS commits, only get the latest MAX_COMMIT_LOGS
+              echo "Commit count ($COMMIT_COUNT) exceeds $MAX_COMMIT_LOGS, getting only the latest $MAX_COMMIT_LOGS"
+              COMMIT_LOGS=$(git log -$MAX_COMMIT_LOGS --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            else
+              # Otherwise get all commits
+              echo "Commit count ($COMMIT_COUNT) does not exceed $MAX_COMMIT_LOGS, getting all commits"
+              COMMIT_LOGS=$(git log --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            fi
+          else
+            # If previous tag found, get all commits since that tag
+            echo "Previous tag found: $PREV_TAG"
+            COMMIT_COUNT=$(git rev-list --count $PREV_TAG..HEAD)
+
+            if [ "$COMMIT_COUNT" -gt $MAX_COMMIT_LOGS ]; then
+              # If more than MAX_COMMIT_LOGS commits since the previous tag, only get the latest MAX_COMMIT_LOGS
+              echo "Commit count since previous tag ($COMMIT_COUNT) exceeds $MAX_COMMIT_LOGS, getting only the latest $MAX_COMMIT_LOGS"
+              COMMIT_LOGS=$(git log -$MAX_COMMIT_LOGS --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            else
+              # Otherwise get all commits since the previous tag
+              echo "Commit count since previous tag ($COMMIT_COUNT) does not exceed $MAX_COMMIT_LOGS, getting all commits"
+              COMMIT_LOGS=$(git log $PREV_TAG..HEAD --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            fi
+          fi
+
+          echo "COMMIT_LOGS<<EOF" >> $GITHUB_ENV
+          echo "$COMMIT_LOGS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0  # Disable CGO to generate fully static binaries, not dependent on glibc
+        run: |
+          # Set output filename
+          OUTPUT_NAME=lhkeymanager-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+
+          # Set security rules parameters
+          MIN_KEY_LENGTH="${{ github.event.inputs.min_key_length || '16' }}"
+          KEY_PREFIX="${{ github.event.inputs.key_prefix || 'lh-' }}"
+          KEY_SUFFIX="${{ github.event.inputs.key_suffix || 'u' }}"
+          REQUIRED_CHARS="${{ github.event.inputs.required_chars || '!@#$%^&*' }}"
+          MIN_SPECIAL_CHARS="${{ github.event.inputs.min_special_chars || '2' }}"
+          KEY_CONTAIN="${{ github.event.inputs.key_contain || 'key' }}"
+
+          # Set ldflags parameters
+          # -s -w reduce binary file size (remove symbol table and debug info)
+          # -extldflags "-static" force static linking
+          LDFLAGS="-s -w -extldflags '-static' \
+                  -X 'github.com/clh021/lhkeymanager/core.MinKeyLength=${MIN_KEY_LENGTH}' \
+                  -X 'github.com/clh021/lhkeymanager/core.KeyPrefix=${KEY_PREFIX}' \
+                  -X 'github.com/clh021/lhkeymanager/core.KeySuffix=${KEY_SUFFIX}' \
+                  -X 'github.com/clh021/lhkeymanager/core.RequiredChars=${REQUIRED_CHARS}' \
+                  -X 'github.com/clh021/lhkeymanager/core.MinSpecialChars=${MIN_SPECIAL_CHARS}' \
+                  -X 'github.com/clh021/lhkeymanager/core.KeyContain=${KEY_CONTAIN}'"
+
+          # Create output directory
+          mkdir -p build/dist/bin
+
+          # Compile
+          go build -v -trimpath -ldflags="${LDFLAGS}" -o "build/dist/bin/${OUTPUT_NAME}" .
+
+          # Display file size after compilation
+          echo "File size after compilation:"
+          ls -lh "build/dist/bin/${OUTPUT_NAME}"
+
+          # Install UPX compression tool
+          if [[ "${{ matrix.goos }}" == "linux" || "${{ matrix.goos }}" == "windows" ]]; then
+            sudo apt-get update && sudo apt-get install -y upx
+
+            # Compress binary file
+            echo "Compressing binary file with UPX..."
+            upx --best --lzma "build/dist/bin/${OUTPUT_NAME}"
+
+            # Display file size after compression
+            echo "File size after compression:"
+            ls -lh "build/dist/bin/${OUTPUT_NAME}"
+          fi
+
+          # Display binary file information (Linux only)
+          if [[ "${{ matrix.goos }}" == "linux" ]]; then
+            echo "Binary file information:"
+            file "build/dist/bin/${OUTPUT_NAME}" || true
+            ldd "build/dist/bin/${OUTPUT_NAME}" || true
+          fi
+
+          # Create archive
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            zip -j "build/dist/bin/${OUTPUT_NAME}.zip" "build/dist/bin/${OUTPUT_NAME}"
+            echo "ASSET=build/dist/bin/${OUTPUT_NAME}.zip" >> $GITHUB_ENV
+          else
+            tar -czf "build/dist/bin/${OUTPUT_NAME}.tar.gz" -C build/dist/bin "${OUTPUT_NAME}"
+            echo "ASSET=build/dist/bin/${OUTPUT_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lhkeymanager-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整的 git 历史
+
+      - name: Get version info
+        id: get_version
+        run: |
+          # If manually triggered, use the input version, otherwise use the tag version
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          fi
+
+          # Find previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            # If no previous tag found, get all commits
+            echo "No previous tag found, getting all commit records"
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+
+            if [ "$COMMIT_COUNT" -gt $MAX_COMMIT_LOGS ]; then
+              # If more than MAX_COMMIT_LOGS commits, only get the latest MAX_COMMIT_LOGS
+              echo "Commit count ($COMMIT_COUNT) exceeds $MAX_COMMIT_LOGS, getting only the latest $MAX_COMMIT_LOGS"
+              COMMIT_LOGS=$(git log -$MAX_COMMIT_LOGS --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            else
+              # Otherwise get all commits
+              echo "Commit count ($COMMIT_COUNT) does not exceed $MAX_COMMIT_LOGS, getting all commits"
+              COMMIT_LOGS=$(git log --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            fi
+          else
+            # If previous tag found, get all commits since that tag
+            echo "Previous tag found: $PREV_TAG"
+            COMMIT_COUNT=$(git rev-list --count $PREV_TAG..HEAD)
+
+            if [ "$COMMIT_COUNT" -gt $MAX_COMMIT_LOGS ]; then
+              # If more than MAX_COMMIT_LOGS commits since the previous tag, only get the latest MAX_COMMIT_LOGS
+              echo "Commit count since previous tag ($COMMIT_COUNT) exceeds $MAX_COMMIT_LOGS, getting only the latest $MAX_COMMIT_LOGS"
+              COMMIT_LOGS=$(git log -$MAX_COMMIT_LOGS --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            else
+              # Otherwise get all commits since the previous tag
+              echo "Commit count since previous tag ($COMMIT_COUNT) does not exceed $MAX_COMMIT_LOGS, getting all commits"
+              COMMIT_LOGS=$(git log $PREV_TAG..HEAD --pretty=format:"- %h %s (%an, %ad)" --date=short)
+            fi
+          fi
+
+          echo "COMMIT_LOGS<<EOF" >> $GITHUB_ENV
+          echo "$COMMIT_LOGS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          # Set commit count environment variable for display in Release description
+          echo "COMMIT_COUNT=$COMMIT_COUNT" >> $GITHUB_ENV
+          echo "PREV_TAG=$PREV_TAG" >> $GITHUB_ENV
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ env.VERSION }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && env.VERSION || github.ref_name }}
+          draft: false
+          prerelease: false
+          files: artifacts/**/*
+          body: |
+            ## LH Key Manager ${{ env.VERSION }}
+
+            All binary files are statically compiled and do not depend on external libraries.
+
+            ### Security Rules
+
+            This release was built with the following security rules:
+            - Minimum key length: ${{ github.event.inputs.min_key_length || '16' }}
+            - Required key prefix: ${{ github.event.inputs.key_prefix || 'lh-' }}
+            - Required key suffix: ${{ github.event.inputs.key_suffix || 'u' }}
+            - Required characters: ${{ github.event.inputs.required_chars || '!@#$%^&*' }}
+            - Minimum special characters: ${{ github.event.inputs.min_special_chars || '2' }}
+            - Key must contain: ${{ github.event.inputs.key_contain || 'key' }}
+
+            ### Supported Platforms
+
+            - Linux (amd64, arm64)
+            - macOS (amd64, arm64)
+            - Windows (amd64)
+
+            ### Commit History
+
+            ${{ env.PREV_TAG != '' && format('Commits since version {0} (Total: {1}):', env.PREV_TAG, env.COMMIT_COUNT) || format('Commit history (Total: {0}):', env.COMMIT_COUNT) }}
+
+            ${{ env.COMMIT_LOGS }}

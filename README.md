@@ -14,11 +14,31 @@ A secure tool for managing API keys, encrypting them in `.env` files, and loadin
 
 ## Installation
 
-### Prerequisites
+### Download from GitHub Releases
 
-- Go 1.18 or higher
+The easiest way to install LH Key Manager is to download a pre-built binary from the [GitHub Releases](https://github.com/clh021/lhkeymanager/releases) page.
+
+1. Go to the [Releases](https://github.com/clh021/lhkeymanager/releases) page
+2. Download the appropriate version for your operating system:
+   - For Linux: `lhkeymanager-vX.Y.Z-linux-amd64.tar.gz` or `lhkeymanager-vX.Y.Z-linux-arm64.tar.gz`
+   - For macOS: `lhkeymanager-vX.Y.Z-darwin-amd64.tar.gz` or `lhkeymanager-vX.Y.Z-darwin-arm64.tar.gz`
+   - For Windows: `lhkeymanager-vX.Y.Z-windows-amd64.zip`
+3. Extract the archive and make the binary executable (Linux/macOS):
+   ```bash
+   # For Linux/macOS
+   tar -xzf lhkeymanager-vX.Y.Z-linux-amd64.tar.gz
+   chmod +x lhkeymanager-vX.Y.Z-linux-amd64
+   # Optionally move to a directory in your PATH
+   sudo mv lhkeymanager-vX.Y.Z-linux-amd64 /usr/local/bin/lhkeymanager
+   ```
 
 ### Building from Source
+
+If you prefer to build from source:
+
+#### Prerequisites
+
+- Go 1.18 or higher
 
 ```bash
 # Clone the repository
@@ -121,6 +141,24 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Creating a New Release
+
+To create a new release:
+
+1. Use the provided script:
+   ```bash
+   ./create-release.sh v1.0.0
+   ```
+   This will create and push a new tag, which will trigger the GitHub Actions workflow to build and publish the release.
+
+2. Alternatively, you can manually create and push a tag:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+3. You can also trigger a manual release from the GitHub Actions tab by selecting the "Release" workflow and clicking "Run workflow". This allows you to specify custom security rules for the build.
 
 ## Acknowledgements
 
