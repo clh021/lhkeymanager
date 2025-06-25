@@ -19,15 +19,17 @@ func main() {
 	// 检查命令行参数
 	var choice string
 	if len(os.Args) > 1 {
-		// 使用命令行参数
 		choice = os.Args[1]
 	} else {
-		// 无参数，直接退出
-		fmt.Println("错误: 密钥验证失败")
+		fmt.Println("错误: 请提供一个命令 (store, load, export)")
+		fmt.Println("用法: ./lhkeymanager <command>")
 		os.Exit(1)
 	}
 
 	var key string
+	// 清理内存中的敏感数据
+	defer clearString(&key)
+
 	maxAttempts := 3
 	for i := 0; i < maxAttempts; i++ {
 		// 获取加密密钥（不显示输入）
@@ -60,17 +62,16 @@ func main() {
 	}
 
 	switch choice {
-	case "1":
+	case "store":
 		storeKey(reader, key)
-	case "2":
+	case "load":
 		loadKeysToNewBash(key)
+	case "export":
+		exportKeys(key)
 	default:
-		fmt.Println("错误: 密钥验证失败")
+		fmt.Printf("错误: 未知命令 '%s'. 可用命令: store, load, export\n", choice)
 		os.Exit(1)
 	}
-
-	// 清理内存中的敏感数据
-	clearString(&key)
 }
 
 // Store a new API key in the .env file
@@ -199,6 +200,29 @@ func loadKeysToNewBash(key string) {
 	secureDeleteFile(tempEnvPath)
 
 	fmt.Println("\nbash会话已结束，环境变量已清除")
+}
+
+// exportKeys loads keys from the .env file and prints them as export commands
+func exportKeys(key string) {
+	// Check if .env file exists
+	if _, err := os.Stat(".env"); os.IsNotExist(err) {
+		// Print to stderr so it doesn't get captured by eval
+		fmt.Fprintln(os.Stderr, "错误: .env文件不存在")
+		os.Exit(1)
+	}
+
+	// Load and decrypt API keys
+	decryptedVars, err := core.LoadAPIKeys(key, ".env")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "加载密钥失败: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Write environment variables to standard output
+	for name, value := range decryptedVars {
+		// Use single quotes to handle special characters in values
+		fmt.Printf("export %s='%s';\n", name, value)
+	}
 }
 
 // secureDeleteFile attempts to securely delete a file
