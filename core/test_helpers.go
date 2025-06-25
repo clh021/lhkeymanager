@@ -59,9 +59,8 @@ func LoadAPIKeysForTest(encryptionKey, envFilePath string) (map[string]string, e
 
 			decryptionSuccess = true
 
-			// Clean the environment variable name
-			cleanName := utils.CleanEnvVarName(name)
-			decryptedVars[cleanName] = decrypted
+			// Use the original environment variable name without cleaning
+			decryptedVars[name] = decrypted
 		} else {
 			// Non-encrypted value
 			decryptedVars[name] = value

@@ -89,17 +89,3 @@ func ReadEnvFile(envFilePath string) (map[string]string, error) {
 
 	return envVars, nil
 }
-
-// CleanEnvVarName removes the suffix from an environment variable name
-// name: environment variable name with suffix
-// Returns the cleaned name
-func CleanEnvVarName(name string) string {
-	// If the name has a suffix pattern like "_PROD", "_DEV", etc.
-	// We only want to remove the last part if it's a suffix, not any underscore
-	parts := strings.Split(name, "_")
-	if len(parts) > 1 && len(parts[len(parts)-1]) <= 5 {
-		// Join all parts except the last one
-		return strings.Join(parts[:len(parts)-1], "_")
-	}
-	return name
-}

@@ -111,7 +111,7 @@ $ ./lhkeymanager
 请输入选项 (1/2): 1
 请输入加密密钥: [输入但不显示]
 请输入要加密的API密钥: [输入但不显示]
-请输入环境变量名(带后缀): OPENAI_API_KEY_PROD
+请输入环境变量名: OPENAI_API_KEY
 
 加密结果: enc:AES256:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdo
 已成功保存到.env文件

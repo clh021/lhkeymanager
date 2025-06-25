@@ -101,7 +101,7 @@ func storeKey(reader *bufio.Reader, key string, envFilePath string) {
 		plaintext := string(byteSecret)
 
 		// Get the environment variable name (can be displayed)
-		fmt.Print("请输入环境变量名(带后缀): ")
+		fmt.Print("请输入环境变量名: ")
 		envName, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Printf("读取环境变量名失败: %v\n", err)

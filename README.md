@@ -111,7 +111,7 @@ Please select an operation:
 Enter your choice (1/2): 1
 Enter encryption key: [input not shown]
 Enter API key to encrypt: [input not shown]
-Enter environment variable name (with suffix): OPENAI_API_KEY_PROD
+Enter environment variable name: OPENAI_API_KEY
 
 Encryption result: enc:AES256:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdo
 Successfully saved to .env file

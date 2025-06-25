@@ -178,12 +178,8 @@ func TestStoreAndLoadAPIKey(t *testing.T) {
 			}
 
 			// Verify that the API key was loaded correctly
-			cleanName := tc.envName
-			if len(cleanName) > 0 && cleanName[len(cleanName)-5:] == "_TEST" {
-				cleanName = cleanName[:len(cleanName)-5]
-			}
-			if decryptedVars[cleanName] != tc.apiKey {
-				t.Errorf("Expected %s=%s, got %s=%s", cleanName, tc.apiKey, cleanName, decryptedVars[cleanName])
+			if decryptedVars[tc.envName] != tc.apiKey {
+				t.Errorf("Expected %s=%s, got %s=%s", tc.envName, tc.apiKey, tc.envName, decryptedVars[tc.envName])
 			}
 		})
 	}
