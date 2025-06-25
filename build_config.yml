@@ -1,0 +1,19 @@
+security_rules:
+  # 最小密钥长度 (默认: 16)
+  min_key_length: 1
+  # 必需的密钥前缀 (默认: lh-, 设置为 "" 或 "empty" 表示无前缀)
+  key_prefix: "l"
+  # 必需的密钥后缀 (默认: u, 设置为 "" 或 "empty" 表示无后缀)
+  key_suffix: "u"
+  # 必需的特殊字符 (默认: !@#$%^&*, 设置为 "" 或 "empty" 表示无特殊字符要求)
+  required_chars: "empty"
+  # 最小特殊字符数量 (默认: 2)
+  min_special_chars: 0
+  # 密钥必须包含的字符串 (默认: key, 设置为 "" 或 "empty" 表示无包含要求)
+  key_contain: "empty"
+  # 临时密钥 (默认: "", 设置为 "" 或 "empty" 表示禁用)
+  temp_key: ""
+  # 临时密钥最大使用次数 (默认: 2)
+  temp_key_max_usage: 0
+  # 密钥提示 (默认: "No hint available.", 设置为 "" 或 "empty" 表示无提示)
+  key_hint: "lianghong."

@@ -74,6 +74,32 @@ go build -o lhkeymanager
 
 这样，只有您知道有效加密密钥的确切规则，即使他人获取了您的加密数据，也更难猜到您的密钥。
 
+### 使用配置文件
+
+您可以通过 `build_config.yml` 文件来配置安全规则，避免每次编译时都进行交互式输入。
+
+1.  在项目根目录下创建 `build_config.yml` 文件。
+2.  按照以下示例格式配置您的安全规则：
+
+    ```yaml
+    security_rules:
+      min_key_length: 20
+      key_prefix: "my-app-"
+      key_suffix: "prod"
+      required_chars: "!@#$"
+      min_special_chars: 3
+      key_contain: "secret"
+      temp_key: "temporary-access"
+      temp_key_max_usage: 1
+      key_hint: "Check your project documentation."
+    ```
+
+3.  运行 `build_zh.sh` 脚本，并选择选项 `2` (使用 build_config.yml 文件)。
+
+    ```bash
+    ./build_zh.sh
+    ```
+
 ## 使用方法
 
 ### 存储新的API密钥

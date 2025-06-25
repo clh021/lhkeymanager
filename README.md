@@ -74,6 +74,32 @@ For enhanced security, you can customize the encryption key validation rules dur
 
 This way, only you know the exact rules for valid encryption keys, making it much harder for others to guess your keys even if they have access to your encrypted data.
 
+### Using a Configuration File
+
+You can configure security rules using a `build_config.yml` file to avoid interactive input during each build.
+
+1.  Create a `build_config.yml` file in the project root directory.
+2.  Configure your security rules following the example format below:
+
+    ```yaml
+    security_rules:
+      min_key_length: 20
+      key_prefix: "my-app-"
+      key_suffix: "prod"
+      required_chars: "!@#$"
+      min_special_chars: 3
+      key_contain: "secret"
+      temp_key: "temporary-access"
+      temp_key_max_usage: 1
+      key_hint: "Check your project documentation."
+    ```
+
+3.  Run the `build.sh` script and select option `2` (Use build_config.yml file).
+
+    ```bash
+    ./build.sh
+    ```
+
 ## Usage
 
 ### Storing a New API Key

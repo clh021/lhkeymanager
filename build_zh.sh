@@ -26,11 +26,45 @@ fi
 
 echo -e "${GREEN}Go 版本检查通过: $GO_VERSION${NC}"
 
-# 询问安全规则
-echo -e "${YELLOW}是否要自定义安全规则？(y/n)${NC}"
-read -r customize
+# Function to display security rules
+display_security_rules() {
+	echo -e "${GREEN}安全规则:${NC}"
+	echo -e "最小密钥长度: ${YELLOW}$min_key_length${NC}"
+	echo -e "必需的密钥前缀: ${YELLOW}$key_prefix${NC}"
+	echo -e "必需的密钥后缀: ${YELLOW}$key_suffix${NC}"
+	echo -e "必需的特殊字符: ${YELLOW}$required_chars${NC}"
+	echo -e "最小特殊字符数量: ${YELLOW}$min_special_chars${NC}"
+	echo -e "必需包含的字符串: ${YELLOW}$key_contain${NC}"
+	echo -e "临时密钥: ${YELLOW}${temp_key:-无}${NC}"
+	echo -e "临时密钥最大使用次数: ${YELLOW}$temp_key_max_usage${NC}"
+	echo -e "密钥提示: ${YELLOW}$key_hint${NC}"
+}
 
-if [[ $customize == "y" || $customize == "Y" ]]; then
+# Function to construct ldflags
+construct_ldflags() {
+	ldflags="-X 'github.com/clh021/lhkeymanager/core.MinKeyLength=$min_key_length' \
+             -X 'github.com/clh021/lhkeymanager/core.KeyPrefix=$key_prefix' \
+             -X 'github.com/clh021/lhkeymanager/core.KeySuffix=$key_suffix' \
+             -X 'github.com/clh021/lhkeymanager/core.RequiredChars=$required_chars' \
+             -X 'github.com/clh021/lhkeymanager/core.MinSpecialChars=$min_special_chars' \
+             -X 'github.com/clh021/lhkeymanager/core.KeyContain=$key_contain' \
+             -X 'github.com/clh021/lhkeymanager/core.TempKey=$temp_key' \
+             -X 'github.com/clh021/lhkeymanager/core.TempKeyMaxUsage=$temp_key_max_usage' \
+             -X 'github.com/clh021/lhkeymanager/core.KeyHint=$key_hint' \
+             -s -w"
+}
+
+# Ask for security rules configuration method
+echo -e "${YELLOW}请选择安全规则配置方式:${NC}"
+echo -e "  ${YELLOW}1. 交互式自定义${NC}"
+echo -e "  ${YELLOW}2. 使用 build_config.yml 文件 (如果存在)${NC}"
+echo -e "  ${YELLOW}3. 使用默认设置${NC}"
+read -r config_choice
+
+ldflags="" # Initialize ldflags
+
+if [[ "$config_choice" == "1" ]]; then
+	echo -e "${GREEN}进入交互式自定义模式...${NC}"
 	# 询问 MinKeyLength
 	echo -e "${YELLOW}输入最小密钥长度 (默认: 16):${NC}"
 	read -r min_key_length
@@ -98,17 +132,7 @@ if [[ $customize == "y" || $customize == "Y" ]]; then
 		key_hint=${key_hint:-"No hint available."}
 	fi
 
-	# 确认设置
-	echo -e "${GREEN}安全规则:${NC}"
-	echo -e "最小密钥长度: ${YELLOW}$min_key_length${NC}"
-	echo -e "必需的密钥前缀: ${YELLOW}$key_prefix${NC}"
-	echo -e "必需的密钥后缀: ${YELLOW}$key_suffix${NC}"
-	echo -e "必需的特殊字符: ${YELLOW}$required_chars${NC}"
-	echo -e "最小特殊字符数量: ${YELLOW}$min_special_chars${NC}"
-	echo -e "必需包含的字符串: ${YELLOW}$key_contain${NC}"
-	echo -e "临时密钥: ${YELLOW}${temp_key:-无}${NC}"
-	echo -e "临时密钥最大使用次数: ${YELLOW}$temp_key_max_usage${NC}"
-	echo -e "密钥提示: ${YELLOW}$key_hint${NC}"
+	display_security_rules
 
 	echo -e "${YELLOW}这些设置正确吗？(y/n)${NC}"
 	read -r confirm
@@ -117,20 +141,56 @@ if [[ $customize == "y" || $customize == "Y" ]]; then
 		exit 1
 	fi
 
-	# 使用自定义设置构建
-	ldflags="-X 'github.com/clh021/lhkeymanager/core.MinKeyLength=$min_key_length' \
-             -X 'github.com/clh021/lhkeymanager/core.KeyPrefix=$key_prefix' \
-             -X 'github.com/clh021/lhkeymanager/core.KeySuffix=$key_suffix' \
-             -X 'github.com/clh021/lhkeymanager/core.RequiredChars=$required_chars' \
-             -X 'github.com/clh021/lhkeymanager/core.MinSpecialChars=$min_special_chars' \
-             -X 'github.com/clh021/lhkeymanager/core.KeyContain=$key_contain' \
-             -X 'github.com/clh021/lhkeymanager/core.TempKey=$temp_key' \
-             -X 'github.com/clh021/lhkeymanager/core.TempKeyMaxUsage=$temp_key_max_usage' \
-             -X 'github.com/clh021/lhkeymanager/core.KeyHint=$key_hint' \
-             -s -w"
+	construct_ldflags
+
+elif [[ "$config_choice" == "2" ]]; then
+	CONFIG_FILE="build_config.yml"
+	if [ ! -f "$CONFIG_FILE" ]; then
+		echo -e "${RED}错误: build_config.yml 文件不存在。请选择其他选项或创建该文件。${NC}"
+		exit 1
+	fi
+
+	# Check for yq
+	if ! command -v yq &>/dev/null; then
+		echo -e "${RED}错误: yq 工具未安装。请安装 yq (https://github.com/mikefarah/yq) 以使用配置文件功能。${NC}"
+		echo -e "${RED}例如: sudo snap install yq 或 brew install yq${NC}"
+		exit 1
+	fi
+
+	echo -e "${GREEN}从 build_config.yml 读取配置...${NC}"
+
+	# Function to get value from YAML with default and handle "empty" string
+	get_config_value() {
+		local path=$1
+		local default_value=$2
+		local value=$(yq e "$path // \"$default_value\"" "$CONFIG_FILE")
+		# If the value from YAML is literally "empty", treat it as an empty string
+		if [[ "$value" == "empty" ]]; then
+			echo ""
+		else
+			echo "$value"
+		fi
+	}
+
+	min_key_length=$(get_config_value ".security_rules.min_key_length" "16")
+	key_prefix=$(get_config_value ".security_rules.key_prefix" "lh-")
+	key_suffix=$(get_config_value ".security_rules.key_suffix" "u")
+	required_chars=$(get_config_value ".security_rules.required_chars" "!@#$%^&*")
+	min_special_chars=$(get_config_value ".security_rules.min_special_chars" "2")
+	key_contain=$(get_config_value ".security_rules.key_contain" "key")
+	temp_key=$(get_config_value ".security_rules.temp_key" "")
+	temp_key_max_usage=$(get_config_value ".security_rules.temp_key_max_usage" "2")
+	key_hint=$(get_config_value ".security_rules.key_hint" "No hint available.")
+
+	display_security_rules
+	construct_ldflags
+
+elif [[ "$config_choice" == "3" ]]; then
+	echo -e "${GREEN}使用默认设置构建。${NC}"
+	ldflags="-s -w" # Default ldflags
 else
-	# 使用默认设置构建
-	ldflags="-s -w"
+	echo -e "${RED}无效的选择。构建已取消。${NC}"
+	exit 1
 fi
 
 # 运行测试
