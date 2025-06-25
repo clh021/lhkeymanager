@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/clh021/lhkeymanager/core"
+	"github.com/clh021/lhkeymanager/utils"
 
 	"golang.org/x/term"
 )
@@ -76,9 +77,23 @@ func main() {
 		loadKeysToNewBash(key, envFilePath)
 	case "export":
 		exportKeys(key, envFilePath)
+	case "encrypt-file":
+		if len(os.Args) != 4 {
+			fmt.Fprintln(os.Stderr, "用法: ./lhkeymanager encrypt-file <input_path> <output_path>")
+			os.Exit(1)
+		}
+		inputFile, outputFile := os.Args[2], os.Args[3]
+		encryptFile(key, inputFile, outputFile)
+	case "decrypt-file":
+		if len(os.Args) != 4 {
+			fmt.Fprintln(os.Stderr, "用法: ./lhkeymanager decrypt-file <input_path> <output_path>")
+			os.Exit(1)
+		}
+		inputFile, outputFile := os.Args[2], os.Args[3]
+		decryptFile(key, inputFile, outputFile)
 	default:
-		fmt.Printf("错误: 未知命令 '%s'. 可用命令: store, load, export\n", choice)
-		fmt.Println("用法: ./lhkeymanager <command> [file_path]")
+		fmt.Fprintf(os.Stderr, "错误: 未知命令 '%s'. 可用命令: store, load, export, encrypt-file, decrypt-file\n", choice)
+		fmt.Fprintln(os.Stderr, "用法: ./lhkeymanager <command> [args...]")
 		os.Exit(1)
 	}
 }
@@ -232,6 +247,69 @@ func exportKeys(key string, envFilePath string) {
 		// Use single quotes to handle special characters in values
 		fmt.Printf("export %s='%s';\n", name, value)
 	}
+}
+
+// encryptFile reads a plaintext env file, encrypts values, and writes to an output file.
+func encryptFile(key, inputFile, outputFile string) {
+	// Read the plaintext file
+	vars, err := utils.ReadEnvFile(inputFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "错误: 读取输入文件 %s 失败: %v\n", inputFile, err)
+		os.Exit(1)
+	}
+
+	// Open output file for writing, create or truncate
+	file, err := os.Create(outputFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "错误: 创建输出文件 %s 失败: %v\n", outputFile, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	// Set permissions
+	if err := os.Chmod(outputFile, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "警告: 无法在 %s 上设置权限: %v\n", outputFile, err)
+	}
+
+	writer := bufio.NewWriter(file)
+
+	for name, value := range vars {
+		encrypted, err := core.EncryptValue(value, key)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "错误: 加密 %s 的值失败: %v\n", name, err)
+			os.Exit(1)
+		}
+		_, err = writer.WriteString(fmt.Sprintf("%s=%s\n", name, encrypted))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "错误: 写入输出文件失败: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	writer.Flush()
+	fmt.Fprintf(os.Stderr, "成功将 %d 个变量加密到 %s\n", len(vars), outputFile)
+}
+
+// decryptFile reads an encrypted env file, decrypts values, and writes to an output file.
+func decryptFile(key, inputFile, outputFile string) {
+	decryptedVars, err := core.LoadAPIKeys(key, inputFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "错误: 从 %s 加载或解密密钥失败: %v\n", inputFile, err)
+		os.Exit(1)
+	}
+
+	file, err := os.Create(outputFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "错误: 创建输出文件 %s 失败: %v\n", outputFile, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	for name, value := range decryptedVars {
+		fmt.Fprintf(file, "%s=%s\n", name, value)
+	}
+
+	fmt.Fprintf(os.Stderr, "成功将 %d 个变量解密到 %s\n", len(decryptedVars), outputFile)
 }
 
 // secureDeleteFile attempts to securely delete a file

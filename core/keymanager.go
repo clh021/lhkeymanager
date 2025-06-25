@@ -177,6 +177,18 @@ func ValidateKeyWithRules(key string, minLength int, prefix, suffix, requiredCha
 	return true
 }
 
+// EncryptValue encrypts a plaintext value and returns the full encrypted string.
+// It does not perform key validation, assuming it's done by the caller.
+func EncryptValue(plaintext, encryptionKey string) (string, error) {
+	encrypted, err := utils.EncryptAES256(plaintext, encryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("encryption failed: %w", err)
+	}
+	// Format the encrypted value
+	encValue := fmt.Sprintf("enc:AES256:%s", encrypted)
+	return encValue, nil
+}
+
 // StoreAPIKey encrypts and stores an API key in the .env file
 // apiKey: the API key to encrypt and store
 // envName: the environment variable name
@@ -189,14 +201,10 @@ func StoreAPIKey(apiKey, envName, encryptionKey, envFilePath string) (string, er
 		return "", fmt.Errorf("invalid encryption key")
 	}
 
-	// Encrypt the API key
-	encrypted, err := utils.EncryptAES256(apiKey, encryptionKey)
+	encValue, err := EncryptValue(apiKey, encryptionKey)
 	if err != nil {
-		return "", fmt.Errorf("encryption failed: %w", err)
+		return "", err
 	}
-
-	// Format the encrypted value
-	encValue := fmt.Sprintf("enc:AES256:%s", encrypted)
 
 	// Save to .env file
 	err = utils.SaveToEnvFile(envName, encValue, envFilePath)

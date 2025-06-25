@@ -1,1 +1,4 @@
 lhkeymanager
+secrets.env.dev
+secrets.env
+secrets.env.decrypted
