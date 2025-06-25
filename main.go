@@ -16,14 +16,22 @@ import (
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
+	// 默认环境文件路径
+	envFilePath := ".env"
+
 	// 检查命令行参数
 	var choice string
 	if len(os.Args) > 1 {
 		choice = os.Args[1]
 	} else {
 		fmt.Println("错误: 请提供一个命令 (store, load, export)")
-		fmt.Println("用法: ./lhkeymanager <command>")
+		fmt.Println("用法: ./lhkeymanager <command> [file_path]")
 		os.Exit(1)
+	}
+
+	// 检查可选的文件路径参数
+	if len(os.Args) > 2 {
+		envFilePath = os.Args[2]
 	}
 
 	var key string
@@ -63,19 +71,20 @@ func main() {
 
 	switch choice {
 	case "store":
-		storeKey(reader, key)
+		storeKey(reader, key, envFilePath)
 	case "load":
-		loadKeysToNewBash(key)
+		loadKeysToNewBash(key, envFilePath)
 	case "export":
-		exportKeys(key)
+		exportKeys(key, envFilePath)
 	default:
 		fmt.Printf("错误: 未知命令 '%s'. 可用命令: store, load, export\n", choice)
+		fmt.Println("用法: ./lhkeymanager <command> [file_path]")
 		os.Exit(1)
 	}
 }
 
 // Store a new API key in the .env file
-func storeKey(reader *bufio.Reader, key string) {
+func storeKey(reader *bufio.Reader, key string, envFilePath string) {
 	for i := 0; ; i++ {
 		// Add a newline before each iteration except the first one
 		if i > 0 {
@@ -101,7 +110,7 @@ func storeKey(reader *bufio.Reader, key string) {
 		envName = strings.TrimSpace(envName)
 
 		// Store the API key
-		encValue, err := core.StoreAPIKey(plaintext, envName, key, ".env")
+		encValue, err := core.StoreAPIKey(plaintext, envName, key, envFilePath)
 		if err != nil {
 			fmt.Printf("存储API密钥失败: %v\n", err)
 			os.Exit(1)
@@ -109,7 +118,7 @@ func storeKey(reader *bufio.Reader, key string) {
 
 		// Output the encryption result
 		fmt.Printf("加密结果: %s\n", encValue)
-		fmt.Println("已成功保存到.env文件")
+		fmt.Printf("已成功保存到 %s 文件\n", envFilePath)
 
 		// Clear sensitive data from memory
 		clearString(&plaintext)
@@ -130,24 +139,24 @@ func storeKey(reader *bufio.Reader, key string) {
 }
 
 // Load keys from the .env file into a new bash session
-func loadKeysToNewBash(key string) {
+func loadKeysToNewBash(key string, envFilePath string) {
 	// Check if .env file exists
-	if _, err := os.Stat(".env"); os.IsNotExist(err) {
-		fmt.Println("错误: .env文件不存在")
+	if _, err := os.Stat(envFilePath); os.IsNotExist(err) {
+		fmt.Printf("错误: 文件 %s 不存在\n", envFilePath)
 		os.Exit(1)
 	}
 
 	// Set file permissions
-	err := os.Chmod(".env", 0600)
+	err := os.Chmod(envFilePath, 0600)
 	if err != nil {
-		fmt.Printf("设置.env文件权限失败: %v\n", err)
+		fmt.Printf("设置 %s 文件权限失败: %v\n", envFilePath, err)
 		// Continue execution, don't exit
 	}
 
 	// Load and decrypt API keys
-	decryptedVars, err := core.LoadAPIKeys(key, ".env")
+	decryptedVars, err := core.LoadAPIKeys(key, envFilePath)
 	if err != nil {
-		fmt.Printf("加载密钥失败: %v\n", err)
+		fmt.Printf("从 %s 加载密钥失败: %v\n", envFilePath, err)
 		os.Exit(1)
 	}
 
@@ -203,18 +212,18 @@ func loadKeysToNewBash(key string) {
 }
 
 // exportKeys loads keys from the .env file and prints them as export commands
-func exportKeys(key string) {
+func exportKeys(key string, envFilePath string) {
 	// Check if .env file exists
-	if _, err := os.Stat(".env"); os.IsNotExist(err) {
+	if _, err := os.Stat(envFilePath); os.IsNotExist(err) {
 		// Print to stderr so it doesn't get captured by eval
-		fmt.Fprintln(os.Stderr, "错误: .env文件不存在")
+		fmt.Fprintf(os.Stderr, "错误: 文件 %s 不存在\n", envFilePath)
 		os.Exit(1)
 	}
 
 	// Load and decrypt API keys
-	decryptedVars, err := core.LoadAPIKeys(key, ".env")
+	decryptedVars, err := core.LoadAPIKeys(key, envFilePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "加载密钥失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "从 %s 加载密钥失败: %v\n", envFilePath, err)
 		os.Exit(1)
 	}
 

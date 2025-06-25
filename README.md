@@ -59,6 +59,7 @@ go build -o lhkeymanager
 For enhanced security, you can customize the encryption key validation rules during the build process:
 
 1. Run the build script and choose to customize security rules when prompted:
+
    ```bash
    ./build.sh
    ```
@@ -67,7 +68,7 @@ For enhanced security, you can customize the encryption key validation rules dur
    - `MinKeyLength`: Minimum length for encryption keys (default: 16)
    - `KeyPrefix`: Required prefix for encryption keys (default: lh-, enter 'empty' for no prefix)
    - `KeySuffix`: Required suffix for encryption keys (default: u, enter 'empty' for no suffix)
-   - `RequiredChars`: Characters that must be present in the key (default: !@#$%^&*, enter 'empty' for no special character requirements)
+   - `RequiredChars`: Characters that must be present in the key (default: !@#$%^&\*, enter 'empty' for no special character requirements)
    - `MinSpecialChars`: Minimum number of special characters required (default: 2)
    - `KeyContain`: String that must be contained in the key (default: key, enter 'empty' for no content requirements)
 
@@ -78,7 +79,7 @@ This way, only you know the exact rules for valid encryption keys, making it muc
 ### Storing a New API Key
 
 ```bash
-./lhkeymanager
+./lhkeymanager store [file_path]
 ```
 
 Select option `1`, then follow the prompts to enter your encryption key and API key.
@@ -147,12 +148,15 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 To create a new release:
 
 1. Use the provided script:
+
    ```bash
    ./create-release.sh v1.0.0
    ```
+
    This will create and push a new tag, which will trigger the GitHub Actions workflow to build and publish the release.
 
 2. Alternatively, you can manually create and push a tag:
+
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
@@ -164,4 +168,3 @@ To create a new release:
 
 - This project uses AES-256-GCM encryption for secure key storage
 - Inspired by the need for secure API key management in development environments
-

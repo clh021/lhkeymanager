@@ -59,6 +59,7 @@ go build -o lhkeymanager
 为了提高安全性，您可以在构建过程中自定义加密密钥的验证规则：
 
 1. 运行构建脚本，并在提示时选择自定义安全规则：
+
    ```bash
    ./build_zh.sh
    ```
@@ -67,7 +68,7 @@ go build -o lhkeymanager
    - `MinKeyLength`：加密密钥的最小长度（默认：16）
    - `KeyPrefix`：加密密钥的必需前缀（默认：lh-，输入 'empty' 表示无前缀要求）
    - `KeySuffix`：加密密钥的必需后缀（默认：u，输入 'empty' 表示无后缀要求）
-   - `RequiredChars`：密钥中必须包含的字符（默认：!@#$%^&*，输入 'empty' 表示无特殊字符要求）
+   - `RequiredChars`：密钥中必须包含的字符（默认：!@#$%^&\*，输入 'empty' 表示无特殊字符要求）
    - `MinSpecialChars`：所需的最少特殊字符数量（默认：2）
    - `KeyContain`：密钥中必须包含的字符串（默认：key，输入 'empty' 表示无包含要求）
 
@@ -78,7 +79,7 @@ go build -o lhkeymanager
 ### 存储新的API密钥
 
 ```bash
-./lhkeymanager
+./lhkeymanager store [file_path]
 ```
 
 然后选择选项`1`，按照提示输入加密密钥和API密钥。
@@ -147,12 +148,15 @@ MIT
 创建新版本的方法：
 
 1. 使用提供的脚本：
+
    ```bash
    ./create-release.sh v1.0.0
    ```
+
    这将创建并推送一个新标签，触发 GitHub Actions 工作流来构建和发布版本。
 
 2. 或者，您可以手动创建并推送标签：
+
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
@@ -164,4 +168,3 @@ MIT
 
 - 本项目使用AES-256-GCM加密算法进行安全密钥存储
 - 灵感来源于开发环境中安全管理API密钥的需求
-
