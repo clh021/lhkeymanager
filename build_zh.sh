@@ -163,7 +163,10 @@ elif [[ "$config_choice" == "2" ]]; then
 	get_config_value() {
 		local path=$1
 		local default_value=$2
-		local value=$(yq e "$path // \"$default_value\"" "$CONFIG_FILE")
+		# yq 命令被修改为 `yq -r` 以支持更常见的
+		# 基于 Python 的 yq (jq 的包装器), 它没有 'e' 命令。
+		# -r 标志用于提供原始字符串输出。
+		local value=$(yq -r "$path // \"$default_value\"" "$CONFIG_FILE")
 		# If the value from YAML is literally "empty", treat it as an empty string
 		if [[ "$value" == "empty" ]]; then
 			echo ""
