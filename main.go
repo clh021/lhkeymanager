@@ -27,22 +27,36 @@ func main() {
 		os.Exit(1)
 	}
 
+	var key string
+	maxAttempts := 3
+	for i := 0; i < maxAttempts; i++ {
+		// 获取加密密钥（不显示输入）
+		fmt.Print("请输入加密密钥: ")
+		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			fmt.Printf("\n读取密钥失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println() // 添加换行
+		key = string(bytePassword)
 
+		// Validate the encryption key
+		if core.ValidateKey(key) {
+			break // Key is valid, exit loop
+		}
 
-	// 获取加密密钥（不显示输入）
-	fmt.Print("请输入加密密钥: ")
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		fmt.Printf("\n读取密钥失败: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println() // 添加换行
-	key := string(bytePassword)
+		// Invalidate the key in memory after a failed attempt
+		clearString(&key)
 
-	// Validate the encryption key
-	if !core.ValidateKey(key) {
-		fmt.Println("错误: 密钥验证失败")
-		os.Exit(1)
+		if i < maxAttempts-1 {
+			fmt.Printf("错误: 密钥验证失败。您还有 %d 次机会。\n", maxAttempts-1-i)
+		} else {
+			fmt.Println("错误: 密钥验证失败。已达到最大尝试次数。")
+			if core.KeyHint != "" && core.KeyHint != "No hint available." {
+				fmt.Printf("密钥提示: %s\n", core.KeyHint)
+			}
+			os.Exit(1)
+		}
 	}
 
 	switch choice {
@@ -209,5 +223,3 @@ func clearString(s *string) {
 	}
 	*s = ""
 }
-
-

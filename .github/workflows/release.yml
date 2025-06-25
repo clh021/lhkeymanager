@@ -1,42 +1,54 @@
 name: Release
 
 env:
-  MAX_COMMIT_LOGS: 40  # Maximum number of commit logs to display in release notes
+  MAX_COMMIT_LOGS: 40 # Maximum number of commit logs to display in release notes
 
 on:
   push:
     tags:
-      - 'v*' # Triggered when pushing a tag starting with v, e.g., v1.0.0
+      - "v*" # Triggered when pushing a tag starting with v, e.g., v1.0.0
   workflow_dispatch: # Allow manual workflow triggering
     inputs:
       version:
-        description: 'Version (e.g.: v1.0.0)'
+        description: "Version (e.g.: v1.0.0)"
         required: true
-        default: 'v0.0.0-manual'
+        default: "v0.0.0-manual"
       min_key_length:
-        description: 'Minimum key length (default: 16)'
+        description: "Minimum key length (default: 16)"
         required: false
-        default: '16'
+        default: "16"
       key_prefix:
-        description: 'Required key prefix (default: lh-, empty for none)'
+        description: "Required key prefix (default: lh-, empty for none)"
         required: false
-        default: 'lh-'
+        default: "lh-"
       key_suffix:
-        description: 'Required key suffix (default: u, empty for none)'
+        description: "Required key suffix (default: u, empty for none)"
         required: false
-        default: 'u'
+        default: "u"
       required_chars:
-        description: 'Required characters (default: !@#$%^&*)'
+        description: "Required characters (default: !@#$%^&*)"
         required: false
-        default: '!@#$%^&*'
+        default: "!@#$%^&*"
       min_special_chars:
-        description: 'Minimum special characters (default: 2)'
+        description: "Minimum special characters (default: 2)"
         required: false
-        default: '2'
+        default: "2"
       key_contain:
-        description: 'String that must be contained in the key (default: key, empty for none)'
+        description: "String that must be contained in the key (default: key, empty for none)"
         required: false
-        default: 'key'
+        default: "key"
+      temp_key:
+        description: "A temporary key with limited uses (default: empty/disabled)"
+        required: false
+        default: ""
+      temp_key_max_usage:
+        description: "Max uses for the temporary key (default: 2)"
+        required: false
+        default: "2"
+      key_hint:
+        description: "Hint to show after 3 failed key entries (default: No hint available.)"
+        required: false
+        default: "No hint available."
 
 jobs:
   build:
@@ -71,7 +83,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22' # 使用最新的稳定版 Go
+          go-version: "1.22" # 使用最新的稳定版 Go
 
       - name: Get version info
         id: get_version
@@ -128,7 +140,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0  # Disable CGO to generate fully static binaries, not dependent on glibc
+          CGO_ENABLED: 0 # Disable CGO to generate fully static binaries, not dependent on glibc
         run: |
           # Set output filename
           OUTPUT_NAME=lhkeymanager-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
@@ -140,6 +152,9 @@ jobs:
           REQUIRED_CHARS="${{ github.event.inputs.required_chars || '!@#$%^&*' }}"
           MIN_SPECIAL_CHARS="${{ github.event.inputs.min_special_chars || '2' }}"
           KEY_CONTAIN="${{ github.event.inputs.key_contain || 'key' }}"
+          TEMP_KEY="${{ github.event.inputs.temp_key || '' }}"
+          TEMP_KEY_MAX_USAGE="${{ github.event.inputs.temp_key_max_usage || '2' }}"
+          KEY_HINT="${{ github.event.inputs.key_hint || 'No hint available.' }}"
 
           # Set ldflags parameters
           # -s -w reduce binary file size (remove symbol table and debug info)
@@ -150,7 +165,10 @@ jobs:
                   -X 'github.com/clh021/lhkeymanager/core.KeySuffix=${KEY_SUFFIX}' \
                   -X 'github.com/clh021/lhkeymanager/core.RequiredChars=${REQUIRED_CHARS}' \
                   -X 'github.com/clh021/lhkeymanager/core.MinSpecialChars=${MIN_SPECIAL_CHARS}' \
-                  -X 'github.com/clh021/lhkeymanager/core.KeyContain=${KEY_CONTAIN}'"
+                  -X 'github.com/clh021/lhkeymanager/core.KeyContain=${KEY_CONTAIN}' \
+                  -X 'github.com/clh021/lhkeymanager/core.TempKey=${TEMP_KEY}' \
+                  -X 'github.com/clh021/lhkeymanager/core.TempKeyMaxUsage=${TEMP_KEY_MAX_USAGE}' \
+                  -X 'github.com/clh021/lhkeymanager/core.KeyHint=${KEY_HINT}'"
 
           # Create output directory
           mkdir -p build/dist/bin
@@ -289,6 +307,9 @@ jobs:
             - Required characters: ${{ github.event.inputs.required_chars || '!@#$%^&*' }}
             - Minimum special characters: ${{ github.event.inputs.min_special_chars || '2' }}
             - Key must contain: ${{ github.event.inputs.key_contain || 'key' }}
+            - Temporary Key: `${{ github.event.inputs.temp_key || 'disabled' }}`
+            - Temp Key Max Uses: ${{ github.event.inputs.temp_key_max_usage || '2' }}
+            - Key Hint: `${{ github.event.inputs.key_hint || 'No hint available.' }}`
 
             ### Supported Platforms
 

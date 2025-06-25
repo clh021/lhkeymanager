@@ -1,7 +1,10 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -29,14 +32,99 @@ var MinSpecialChars = "2"
 // KeyContain is a string that must be contained in the encryption key (empty means no specific string required)
 var KeyContain = "key"
 
+// TempKey is a temporary key that is valid for a limited number of uses
+var TempKey = "" // Default: disabled
+
+// TempKeyMaxUsage is the maximum number of times the TempKey can be used
+var TempKeyMaxUsage = "2"
+
+// KeyHint is a hint to be displayed after multiple failed key entries
+var KeyHint = "No hint available."
+
+// stateFilePath is the path to the file storing usage counts for temporary keys
+const stateFilePath = ".lhkeymanager.state"
+
+// readState reads the usage state from the state file.
+func readState() (map[string]int, error) {
+	state := make(map[string]int)
+	file, err := os.Open(stateFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return state, nil // File doesn't exist, return empty state
+		}
+		return nil, err
+	}
+	defer file.Close()
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(bytes) == 0 {
+		return state, nil // File is empty, return empty state
+	}
+
+	err = json.Unmarshal(bytes, &state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
+}
+
+// writeState writes the usage state to the state file.
+func writeState(state map[string]int) error {
+	bytes, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(stateFilePath, bytes, 0600)
+}
+
 // ValidateKey validates the encryption key
 // key: encryption key to validate
 // Returns true if the key is valid, false otherwise
 func ValidateKey(key string) bool {
-	// Convert string values to integers
+	// First, try to validate against the main security rules
 	minKeyLength, _ := strconv.Atoi(MinKeyLength)
 	minSpecialChars, _ := strconv.Atoi(MinSpecialChars)
-	return ValidateKeyWithRules(key, minKeyLength, KeyPrefix, KeySuffix, RequiredChars, minSpecialChars, KeyContain)
+	if ValidateKeyWithRules(key, minKeyLength, KeyPrefix, KeySuffix, RequiredChars, minSpecialChars, KeyContain) {
+		return true
+	}
+
+	// If main validation fails, check for the temporary key
+	if TempKey == "" || key != TempKey {
+		return false // Temp key is disabled or doesn't match
+	}
+
+	// Temp key matched, now check usage count
+	maxUsage, err := strconv.Atoi(TempKeyMaxUsage)
+	if err != nil {
+		maxUsage = 2 // Fallback to a safe default if parsing fails
+	}
+
+	state, err := readState()
+	if err != nil {
+		// If we can't read the state, we can't validate the temp key.
+		// For security, fail closed.
+		return false
+	}
+
+	usageCount := state[key]
+	if usageCount >= maxUsage {
+		return false // Exceeded max usage
+	}
+
+	// Increment usage count and save state
+	state[key] = usageCount + 1
+	err = writeState(state)
+	if err != nil {
+		// If we can't write the state, we can't guarantee the usage count is tracked.
+		// Fail closed to prevent unlimited use.
+		return false
+	}
+
+	return true
 }
 
 // ValidateKeyWithRules validates the encryption key with custom rules

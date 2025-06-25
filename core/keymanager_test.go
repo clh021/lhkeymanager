@@ -62,6 +62,54 @@ func TestValidateKey(t *testing.T) {
 	}
 }
 
+func TestValidateKey_TempKey(t *testing.T) {
+	stateFile := ".lhkeymanager.state"
+	// Cleanup state file before and after test
+	os.Remove(stateFile)
+	defer os.Remove(stateFile)
+
+	// Set test-specific rules
+	originalTempKey := TempKey
+	originalTempKeyMaxUsage := TempKeyMaxUsage
+	TempKey = "temp-key-for-test"
+	TempKeyMaxUsage = "2"
+	defer func() {
+		TempKey = originalTempKey
+		TempKeyMaxUsage = originalTempKeyMaxUsage
+	}()
+
+	// --- Test Cases ---
+
+	// 1. First use of temp key, should pass
+	t.Run("First use of temp key", func(t *testing.T) {
+		if !ValidateKey(TempKey) {
+			t.Errorf("Expected temp key to be valid on first use, but it was not")
+		}
+	})
+
+	// 2. Second use of temp key, should pass
+	t.Run("Second use of temp key", func(t *testing.T) {
+		if !ValidateKey(TempKey) {
+			t.Errorf("Expected temp key to be valid on second use, but it was not")
+		}
+	})
+
+	// 3. Third use of temp key, should fail
+	t.Run("Third use of temp key", func(t *testing.T) {
+		if ValidateKey(TempKey) {
+			t.Errorf("Expected temp key to be invalid on third use, but it was valid")
+		}
+	})
+
+	// 4. Use a wrong temp key, should fail
+	t.Run("Wrong temp key", func(t *testing.T) {
+		// This key doesn't match the temp key and also doesn't match the default permanent key rules
+		if ValidateKey("wrong-temp-key") {
+			t.Errorf("Expected wrong temp key to be invalid, but it was valid")
+		}
+	})
+}
+
 func TestStoreAndLoadAPIKey(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "keymanager_test")
@@ -99,7 +147,7 @@ func TestStoreAndLoadAPIKey(t *testing.T) {
 			name:          "Invalid encryption key",
 			apiKey:        "sk-1234567890abcdef",
 			envName:       "INVALID_KEY_TEST",
-			encryptionKey: "",  // Empty key will cause encryption to fail
+			encryptionKey: "", // Empty key will cause encryption to fail
 			shouldSucceed: false,
 		},
 	}
